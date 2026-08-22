@@ -1,0 +1,6 @@
+{
+  "name": "PLL Academy",
+  "description": "A premium payment management ecosystem for film academies, balancing administrative clarity with cinematic prestige.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

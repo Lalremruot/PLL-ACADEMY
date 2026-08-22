@@ -1,0 +1,330 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Roboto", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Roboto Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Dark is the default theme; app/globals.css redefines these under
+     html[data-theme="light"] and every brand-* utility follows. */
+  --color-brand-bg: #0d0c0c;
+  --color-brand-charcoal: #141313;
+  --color-brand-surface-raised: #1c1b1b;
+  --color-brand-surface-hover: #2b2a2a;
+  --color-brand-surface-card: #262626;
+  --color-brand-surface-modal: #2D2D2D;
+  --color-brand-border: #333333;
+  --color-brand-gold: #D4AF37;
+  --color-brand-gold-bright: #e9c349;
+  --color-brand-emerald: #2D6A4F;
+  --color-brand-cinnabar: #9B2226;
+  --color-brand-amethyst: #7B2CBF;
+
+  /* Default body text, and the readable-on-background variant of gold.
+     #D4AF37 only has ~2:1 contrast on white, so light mode swaps
+     `text-brand-gold` for the ink value while gold *fills* stay gold. */
+  --color-brand-ink: #ffffff;
+  --color-brand-gold-ink: #D4AF37;
+
+  /* Consumed by the scrollbar rules below. */
+  --scrollbar-track: #141313;
+  --scrollbar-thumb: #333333;
+}
+
+/* ---------------------------------------------------------------------------
+   Light theme
+   ---------------------------------------------------------------------------
+   Only the tokens are redefined here. The compatibility layer further down
+   handles the fixed-palette utilities (text-white, text-gray-*) that predate
+   the tokens and are still used across the components.
+   ------------------------------------------------------------------------ */
+html[data-theme='light'] {
+  color-scheme: light;
+
+  --color-brand-bg: #f5f3ef;
+  --color-brand-charcoal: #eae7e0;
+  --color-brand-surface-raised: #ffffff;
+  --color-brand-surface-hover: #e2ded5;
+  --color-brand-surface-card: #ffffff;
+  --color-brand-surface-modal: #ffffff;
+  --color-brand-border: #d8d2c8;
+  --color-brand-gold: #D4AF37;
+  --color-brand-gold-bright: #c9a42c;
+  --color-brand-emerald: #216b4b;
+  --color-brand-cinnabar: #9B2226;
+  --color-brand-amethyst: #6d24ab;
+
+  --color-brand-ink: #1b1917;
+  --color-brand-gold-ink: #8a6a0b;
+
+  --scrollbar-track: #eae7e0;
+  --scrollbar-thumb: #c7c0b4;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+@layer utilities {
+  .glow-gold {
+    box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+  }
+  .glow-gold-lg {
+    box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+  }
+  .glow-emerald {
+    box-shadow: 0 0 12px rgba(45, 106, 79, 0.45);
+  }
+}
+
+/* --- Mobile baseline --- */
+
+/* No sideways page scroll: wide tables scroll inside their own container. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+@media (max-width: 1023px) {
+  /* iOS Safari zooms the viewport when a focused control is under 16px.
+     The compact type stays everywhere else; only the controls scale up. */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  /* Keep tap targets reachable without changing the desktop density. */
+  button,
+  [role='button'] {
+    touch-action: manipulation;
+  }
+}
+
+/* Momentum scrolling for the horizontal table wrappers. */
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom scrollbar for data-heavy administrative dashboards */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4AF37;
+}
+
+/* Force DD/MM/YYYY overlay-friendly native date inputs */
+.date-field-input {
+  color: transparent;
+}
+.date-field-input::-webkit-datetime-edit,
+.date-field-input::-webkit-datetime-edit-fields-wrapper,
+.date-field-input::-webkit-datetime-edit-text,
+.date-field-input::-webkit-datetime-edit-month-field,
+.date-field-input::-webkit-datetime-edit-day-field,
+.date-field-input::-webkit-datetime-edit-year-field {
+  color: transparent;
+}
+.date-field-input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------------
+   Light-theme compatibility layer
+   ---------------------------------------------------------------------------
+   The components predate the token palette and still use ~700 fixed Tailwind
+   colours (text-white, text-gray-400, …) that a token swap cannot reach.
+   Remapping them here is what makes the light theme readable without touching
+   every component. These selectors are (0,2,1); the Tailwind utilities they
+   override are (0,1,0), so they win without !important.
+
+   Anything on a saturated brand fill is exempted below — white-on-emerald
+   stays white in both themes.
+   ------------------------------------------------------------------------ */
+html[data-theme='light'] .text-white {
+  color: var(--color-brand-ink);
+}
+html[data-theme='light'] .text-gray-200 {
+  color: #33302c;
+}
+html[data-theme='light'] .text-gray-300 {
+  color: #423e39;
+}
+html[data-theme='light'] .text-gray-400 {
+  color: #56504a;
+}
+html[data-theme='light'] .text-gray-500 {
+  color: #6b645b;
+}
+html[data-theme='light'] .text-gray-600 {
+  color: #7d766c;
+}
+
+/* Accent text needs a darker value on a light background; the fills do not. */
+html[data-theme='light'] .text-brand-gold {
+  color: var(--color-brand-gold-ink);
+}
+html[data-theme='light'] .text-brand-gold-bright {
+  color: #a07d10;
+}
+html[data-theme='light'] .text-yellow-400 {
+  color: #8a6a0b;
+}
+html[data-theme='light'] .text-green-400 {
+  color: #15703f;
+}
+html[data-theme='light'] .text-red-400 {
+  color: #b0201c;
+}
+
+/* Keep legible text on saturated fills — same element, or nested inside one.
+   (0,3,1) and (0,3,1) respectively, so both outrank the remaps above. */
+html[data-theme='light'] .bg-brand-gold.text-white,
+html[data-theme='light'] .bg-brand-gold-bright.text-white,
+html[data-theme='light'] .bg-brand-emerald.text-white,
+html[data-theme='light'] .bg-brand-cinnabar.text-white,
+html[data-theme='light'] .bg-brand-amethyst.text-white,
+html[data-theme='light'] .bg-brand-gold .text-white,
+html[data-theme='light'] .bg-brand-gold-bright .text-white,
+html[data-theme='light'] .bg-brand-emerald .text-white,
+html[data-theme='light'] .bg-brand-cinnabar .text-white,
+html[data-theme='light'] .bg-brand-amethyst .text-white {
+  color: #ffffff;
+}
+html[data-theme='light'] .bg-brand-gold .text-gray-400,
+html[data-theme='light'] .bg-brand-emerald .text-gray-400,
+html[data-theme='light'] .bg-brand-cinnabar .text-gray-400,
+html[data-theme='light'] .bg-brand-amethyst .text-gray-400 {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+/* The gold glows read as blur on a light background. */
+html[data-theme='light'] .glow-gold {
+  box-shadow: 0 1px 3px rgba(27, 25, 23, 0.12);
+}
+html[data-theme='light'] .glow-gold-lg {
+  box-shadow: 0 2px 8px rgba(27, 25, 23, 0.16);
+}
+html[data-theme='light'] .glow-emerald {
+  box-shadow: 0 1px 3px rgba(27, 25, 23, 0.12);
+}
+
+/* ---------------------------------------------------------------------------
+   Always-dark island
+   ---------------------------------------------------------------------------
+   The login screen is a photograph behind a black scrim, so it stays dark in
+   both themes — light ink on that hero would be unreadable. Re-declaring the
+   tokens here is enough for every brand-* utility inside; the fixed-palette
+   utilities are restored alongside them, at (0,3,1) so they outrank the
+   light-theme remaps above.
+   ------------------------------------------------------------------------ */
+html[data-theme='light'] .force-dark {
+  color-scheme: dark;
+
+  --color-brand-bg: #0d0c0c;
+  --color-brand-charcoal: #141313;
+  --color-brand-surface-raised: #1c1b1b;
+  --color-brand-surface-hover: #2b2a2a;
+  --color-brand-surface-card: #262626;
+  --color-brand-surface-modal: #2D2D2D;
+  --color-brand-border: #333333;
+  --color-brand-gold: #D4AF37;
+  --color-brand-gold-bright: #e9c349;
+  --color-brand-emerald: #2D6A4F;
+  --color-brand-cinnabar: #9B2226;
+  --color-brand-amethyst: #7B2CBF;
+
+  --color-brand-ink: #ffffff;
+  --color-brand-gold-ink: #D4AF37;
+}
+html[data-theme='light'] .force-dark .text-white {
+  color: #ffffff;
+}
+html[data-theme='light'] .force-dark .text-gray-200 {
+  color: #e5e7eb;
+}
+html[data-theme='light'] .force-dark .text-gray-300 {
+  color: #d1d5db;
+}
+html[data-theme='light'] .force-dark .text-gray-400 {
+  color: #9ca3af;
+}
+html[data-theme='light'] .force-dark .text-gray-500 {
+  color: #6b7280;
+}
+html[data-theme='light'] .force-dark .text-gray-600 {
+  color: #4b5563;
+}
+html[data-theme='light'] .force-dark .text-yellow-400 {
+  color: #facc15;
+}
+html[data-theme='light'] .force-dark .text-green-400 {
+  color: #4ade80;
+}
+html[data-theme='light'] .force-dark .text-red-400 {
+  color: #f87171;
+}
+html[data-theme='light'] .force-dark .glow-gold {
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.45);
+}
+html[data-theme='light'] .force-dark .glow-gold-lg {
+  box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+}
+html[data-theme='light'] .force-dark .glow-emerald {
+  box-shadow: 0 0 12px rgba(45, 106, 79, 0.45);
+}
+
+/* ---------------------------------------------------------------------------
+   Hover variants
+   ---------------------------------------------------------------------------
+   `.hover\:text-white:hover` is (0,2,0) and the base remaps above are (0,2,1),
+   so without these the hover colour on any element that also carries a fixed
+   text colour would never apply in light mode. Re-stating each variant at
+   (0,3,1) restores it — and retints it for the light background at the same
+   time.
+   ------------------------------------------------------------------------ */
+html[data-theme='light'] .hover\:text-white:hover {
+  color: var(--color-brand-ink);
+}
+html[data-theme='light'] .hover\:text-black:hover {
+  color: #000000;
+}
+html[data-theme='light'] .hover\:text-brand-gold:hover {
+  color: var(--color-brand-gold-ink);
+}
+html[data-theme='light'] .hover\:text-brand-gold-bright:hover {
+  color: #a07d10;
+}
+html[data-theme='light'] .hover\:text-brand-cinnabar:hover {
+  color: var(--color-brand-cinnabar);
+}
+html[data-theme='light'] .hover\:text-red-400:hover {
+  color: #b0201c;
+}
+
+/* Same restoration inside the always-dark island, which ties on specificity
+   with the block above and so has to come after it. */
+html[data-theme='light'] .force-dark .hover\:text-white:hover {
+  color: #ffffff;
+}
+html[data-theme='light'] .force-dark .hover\:text-brand-gold:hover {
+  color: #D4AF37;
+}
+html[data-theme='light'] .force-dark .hover\:text-red-400:hover {
+  color: #f87171;
+}
