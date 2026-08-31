@@ -5,9 +5,12 @@ import {
   SESSION_COOKIE_NAME,
   SESSION_TTL_SECONDS,
 } from '@/lib/session';
+import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function POST(req: NextRequest) {
+  const limited = rateLimit(req, 'login', 10);
+  if (limited) return limited;
   try {
     const body = await req.json();
     const { email, role, password, parentLoginId } = body;

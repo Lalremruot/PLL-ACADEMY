@@ -4,9 +4,12 @@ import {
   getStudentAttendance,
   upsertStudentAttendance,
 } from '@/services/studentAttendanceService';
+import { requireAuth } from '@/lib/authGuard';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const { searchParams } = new URL(req.url);
     const date = searchParams.get('date') || undefined;
@@ -29,19 +32,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const body = await req.json();
     if (Array.isArray(body)) {
-      for (const item of body) {
-        if (item.markedByRole !== 'admin' && item.markedByRole !== 'manager') {
-          return errorResponse('Only admin or manager can mark student attendance', 403);
-        }
-      }
       const updated = await bulkUpsertStudentAttendance(body);
       return successResponse(updated, 'Student attendance saved successfully');
-    }
-    if (body.markedByRole !== 'admin' && body.markedByRole !== 'manager') {
-      return errorResponse('Only admin or manager can mark student attendance', 403);
     }
     const updated = await upsertStudentAttendance(body);
     return successResponse(updated, 'Student attendance saved successfully', 201);
@@ -52,19 +49,13 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const body = await req.json();
     if (Array.isArray(body)) {
-      for (const item of body) {
-        if (item.markedByRole !== 'admin' && item.markedByRole !== 'manager') {
-          return errorResponse('Only admin or manager can mark student attendance', 403);
-        }
-      }
       const updated = await bulkUpsertStudentAttendance(body);
       return successResponse(updated, 'Student attendance updated successfully');
-    }
-    if (body.markedByRole !== 'admin' && body.markedByRole !== 'manager') {
-      return errorResponse('Only admin or manager can mark student attendance', 403);
     }
     const updated = await upsertStudentAttendance(body);
     return successResponse(updated, 'Student attendance updated successfully');

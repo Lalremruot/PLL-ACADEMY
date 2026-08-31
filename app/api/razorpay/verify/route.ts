@@ -2,11 +2,14 @@ import { NextRequest } from 'next/server';
 import { getRazorpayCredentials, verifyPaymentSignature } from '@/services/razorpayService';
 import { payInvoice } from '@/services/invoiceService';
 import { requireAuth } from '@/lib/authGuard';
+import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ('response' in auth) return auth.response;
+  const limited = rateLimit(req, 'rzp-verify-payment', 30, auth.user.email);
+  if (limited) return limited;
   try {
     const body = await req.json();
     const { invoiceId, paymentId, orderId, signature } = body;

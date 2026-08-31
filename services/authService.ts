@@ -9,18 +9,28 @@ export const KNOWN_GUARANTORS = [
   { name: 'Christopher Kane', email: 'kane@synco-sports.com', role: 'parent' as const },
   { name: 'Greta Grealish', email: 'greta@grealish-sports.com', role: 'parent' as const },
   { name: 'Roman Cruyff', email: 'roman.c@cruyff-academy.com', role: 'parent' as const },
-  { name: 'Academy Administrator', email: 'admin@footballacademy.com', role: 'admin' as const },
-  { name: 'Academy Manager', email: 'manager@strikeracademy.edu', role: 'manager' as const },
 ];
 
 /**
- * Demo credentials kept so the app stays testable. These are validated
- * server-side against the same password rules as every other account.
+ * The primary administrator credentials ship via the environment and are
+ * seeded into MongoDB on first login (when reachable). They also serve as the
+ * fallback login during a DB outage. Managers and parents are provisioned by
+ * the admin / system through the UI — there are no bundled demo accounts.
+ *
+ * Fail closed: if ADMIN_EMAIL or ADMIN_PASSWORD is not configured, the
+ * primary-admin fallback is never honoured and no seed admin is created, so an
+ * insecure default can never authenticate.
  */
-export const DEMO_ACCOUNTS = [
-  { email: 'admin@strikeracademy.edu', password: 'admin123', role: 'admin' as const, name: 'Academy Administrator' },
-  { email: 'manager@strikeracademy.edu', password: 'manager123', role: 'manager' as const, name: 'Academy Manager' },
-];
+const envAdminEmail = (process.env.ADMIN_EMAIL ?? '').trim();
+const envAdminPassword = process.env.ADMIN_PASSWORD ?? '';
+const envAdminName = process.env.ADMIN_NAME?.trim() || 'Academy Administrator';
+const adminEnvConfigured = Boolean(envAdminEmail && envAdminPassword);
+
+const matchesPrimaryAdmin = (email: string, role: string, password: string): boolean =>
+  adminEnvConfigured &&
+  role === 'admin' &&
+  email === envAdminEmail.toLowerCase() &&
+  password === envAdminPassword;
 
 /** @deprecated Parents now use parentLoginId — kept for legacy references only */
 export const PARENT_PASSKEY = 'parent123';
@@ -173,31 +183,41 @@ export async function changeUserPassword(input: {
 export async function listStaffAccounts() {
   const db = await connectToDatabase();
   if (!db) {
-    return DEMO_ACCOUNTS.map(({ password: _password, ...account }) => account);
+    return adminEnvConfigured
+      ? [{ email: envAdminEmail, role: 'admin' as const, name: envAdminName }]
+      : [];
+  }
+  if (adminEnvConfigured) {
+    await UserModel.updateOne(
+      { email: envAdminEmail },
+      {
+        $setOnInsert: {
+          email: envAdminEmail,
+          role: 'admin',
+          name: envAdminName,
+          passwordHash: hashPassword(envAdminPassword),
+        },
+      },
+      { upsert: true }
+    );
   }
   const docs = await UserModel.find({ role: { $in: ['admin', 'manager'] } })
     .sort({ role: 1, email: 1 })
     .lean();
-  const staff = docs.map((doc) => ({
+  return docs.map((doc) => ({
     email: doc.email,
     role: doc.role as 'admin' | 'manager',
     name: doc.name,
   }));
-  for (const demo of DEMO_ACCOUNTS) {
-    if (!staff.some((s) => s.email.toLowerCase() === demo.email)) {
-      staff.push({ email: demo.email, role: demo.role, name: demo.name });
-    }
-  }
-  return staff;
 }
 
 /**
  * Server-side login: validates email + password + role and returns the session
  * user. Admin/manager accounts authenticate against hashed credentials stored
- * in MongoDB when it is reachable, otherwise they fall back to the in-memory
- * demo credentials so the app stays testable during DB/DNS outages. Real
- * accounts always take precedence when the database is available, so password
- * changes still take effect.
+ * in MongoDB when it is reachable. The primary admin (from the environment) is
+ * seeded on first login; during a DB outage only that primary admin can sign
+ * in. All other accounts fall away — managers and parents must be provisioned
+ * through the admin UI before they exist.
  */
 export async function loginUser(email: string, role: 'admin' | 'manager' | 'parent', password: string) {
   const normalizedEmail = email.toLowerCase().trim();
@@ -207,9 +227,7 @@ export async function loginUser(email: string, role: 'admin' | 'manager' | 'pare
     throw new AuthenticationError('Parents must sign in with their unique Parent Login ID.');
   }
 
-  const demo = DEMO_ACCOUNTS.find(
-    (d) => d.email.toLowerCase() === normalizedEmail && d.role === role && d.password === password
-  );
+  const isPrimaryAdmin = matchesPrimaryAdmin(normalizedEmail, role, password);
 
   if (db) {
     const user = await UserModel.findOne({ email: normalizedEmail }).select('+passwordHash');
@@ -226,28 +244,28 @@ export async function loginUser(email: string, role: 'admin' | 'manager' | 'pare
         name: user.name,
       };
     }
-    if (!demo) {
-      throw new AuthenticationError('Invalid email or password for this role.');
+    if (isPrimaryAdmin) {
+      const created = await UserModel.create({
+        email: normalizedEmail,
+        role: 'admin',
+        name: envAdminName,
+        passwordHash: hashPassword(envAdminPassword),
+      });
+      return {
+        email: created.email,
+        role: created.role as 'admin',
+        name: created.name,
+      };
     }
-    const created = await UserModel.create({
-      email: normalizedEmail,
-      role: demo.role,
-      name: demo.name,
-      passwordHash: hashPassword(demo.password),
-    });
-    return {
-      email: created.email,
-      role: created.role as 'admin' | 'manager',
-      name: created.name,
-    };
+    throw new AuthenticationError('Invalid email or password for this role.');
   }
 
-  if (!demo) {
+  if (!isPrimaryAdmin) {
     throw new AuthenticationError('Invalid email or password for this role.');
   }
   return {
     email: normalizedEmail,
-    role: demo.role,
-    name: demo.name,
+    role: 'admin' as const,
+    name: envAdminName,
   };
 }

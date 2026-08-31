@@ -1,8 +1,11 @@
 import { NextRequest } from 'next/server';
 import { getAllBatches, createBatch, updateBatches } from '@/services/batchService';
+import { requireAuth } from '@/lib/authGuard';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = requireAuth(req);
+  if ('response' in auth) return auth.response;
   try {
     const batches = await getAllBatches();
     return successResponse(batches, 'Batches retrieved successfully');
@@ -12,6 +15,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const body = await req.json();
     if (Array.isArray(body)) {
@@ -29,6 +34,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const body = await req.json();
     if (Array.isArray(body)) {

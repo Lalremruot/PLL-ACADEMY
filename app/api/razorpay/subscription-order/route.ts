@@ -2,11 +2,14 @@ import { NextRequest } from 'next/server';
 import { createRazorpaySubscriptionOrder } from '@/services/razorpayService';
 import { getAllSubscriptions } from '@/services/subscriptionService';
 import { requireAuth } from '@/lib/authGuard';
+import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req);
   if ('response' in auth) return auth.response;
+  const limited = rateLimit(req, 'rzp-subscription-order', 20, auth.user.email);
+  if (limited) return limited;
   try {
     const body = await req.json();
     const { subscriptionId } = body;

@@ -6,6 +6,7 @@ import {
 } from '@/services/managerAttendanceService';
 import { getAcademySettings } from '@/services/settingsService';
 import { calculateHaversineDistance, parseClockTimeToMinutes } from '@/src/types';
+import { requireAuth } from '@/lib/authGuard';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 /**
@@ -23,6 +24,8 @@ async function verifyProximityServerSide(latitude: unknown, longitude: unknown):
 }
 
 export async function GET(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const { searchParams } = new URL(req.url);
     const managerEmail = searchParams.get('managerEmail') || undefined;
@@ -38,6 +41,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
   try {
     const body = await req.json();
     const proximity = await verifyProximityServerSide(body.latitude, body.longitude);
