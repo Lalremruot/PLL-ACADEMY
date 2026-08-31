@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, Filter, Plus, IndianRupee, Percent, AlertCircle, Sparkles, 
-  User, Mail, ArrowUpRight, CheckCircle2, AlertTriangle, BookOpen, Clock, Trash2, X
+  User, Mail, ArrowUpRight, CheckCircle2, AlertTriangle, BookOpen, Clock, Trash2, X, KeyRound, Info
 } from 'lucide-react';
 import { Invoice, Subscription, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
@@ -243,7 +243,7 @@ export default function AdminDashboard({
                       <label className="block text-xs text-gray-400 mb-1 font-sans">Student Name</label>
                       <input
                         type="text"
-                        placeholder="e.g. Liam Sterling"
+                        placeholder="e.g. Aarav Sharma"
                         value={formData.studentName}
                         onChange={e => setFormData({ ...formData, studentName: e.target.value })}
                         className={`w-full bg-brand-charcoal border text-white text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors ${
@@ -257,7 +257,7 @@ export default function AdminDashboard({
                       <label className="block text-xs text-gray-400 mb-1 font-sans">Parent / Guarantor</label>
                       <input
                         type="text"
-                        placeholder="e.g. Marcus Sterling"
+                        placeholder="e.g. Rohit Sharma"
                         value={formData.parentName}
                         onChange={e => setFormData({ ...formData, parentName: e.target.value })}
                         className={`w-full bg-brand-charcoal border text-white text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors ${
@@ -609,6 +609,17 @@ export default function AdminDashboard({
                         <p className="font-sans text-xs text-gray-400 truncate max-w-[170px]" title={sub.courseName}>
                           {sub.courseName}
                         </p>
+                        {sub.parentLoginId && (
+                          <p
+                            className="font-mono text-[10px] text-brand-gold/90 cursor-pointer hover:text-brand-gold transition-colors select-all flex items-center gap-1 mt-0.5"
+                            title="Parent Login ID — share this with the parent so they can log in"
+                            onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(sub.parentLoginId!); }}
+                          >
+                            <KeyRound className="h-3 w-3 shrink-0" />
+                            {sub.parentLoginId}
+                            <span className="text-gray-500 font-sans text-[9px] normal-case">(tap to copy)</span>
+                          </p>
+                        )}
                       </div>
                       
                       {/* Premium indicator */}
@@ -677,26 +688,13 @@ export default function AdminDashboard({
               <span className="h-2 w-2 rounded-full bg-brand-gold animate-pulse"></span>
               PLL Academy Ledger Feed
             </h4>
-            
+
             <div className="space-y-3">
-              <div className="flex items-start gap-2.5 text-xs text-gray-300">
-                <CheckCircle2 className="h-4 w-4 text-brand-emerald shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 text-xs text-gray-400">
+                <Info className="h-4 w-4 text-brand-gold shrink-0 mt-0.5" />
                 <p>
-                  Automatic billing cycle completed. Successfully drafted tuition from <strong className="text-white">Marcus Sterling</strong> (₹450.00).
-                </p>
-              </div>
-
-              <div className="flex items-start gap-2.5 text-xs text-gray-300">
-                <AlertTriangle className="h-4 w-4 text-brand-cinnabar shrink-0 mt-0.5" />
-                <p>
-                  Automatic draft declined for <strong className="text-white">Christopher Kane</strong>. Email dispatch triggered for ID <span className="font-mono text-gray-400">INV-7291-B</span>.
-                </p>
-              </div>
-
-              <div className="flex items-start gap-2.5 text-xs text-gray-300">
-                <Clock className="h-4 w-4 text-brand-amethyst shrink-0 mt-0.5" />
-                <p>
-                  Subscription state modified. <strong className="text-white">Sophia Cruyff</strong> moved to Active.
+                  No ledger activity yet. Billing events (auto-debit charges and failures) will appear here once
+                  payments are processed.
                 </p>
               </div>
             </div>

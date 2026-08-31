@@ -39,21 +39,14 @@ interface ParentPortalProps {
   } | null;
 }
 
-// Distinct parents based on our seed data
+// Guarantors are derived from the logged-in parent's own subscriptions only —
+// no bundled sample parents. A parent never sees another family's data.
 interface ParentGuarantor {
   name: string;
   email: string;
   avatar: string;
   studioName: string;
 }
-
-const GUARANTORS: ParentGuarantor[] = [
-  { name: 'Marcus Sterling', email: 'm.sterling@footballmail.com', avatar: 'MS', studioName: 'Sterling Athletic Club' },
-  { name: 'Christopher Kane', email: 'kane@synco-sports.com', avatar: 'CK', studioName: 'Kane Soccer Academy' },
-  { name: 'Greta Grealish', email: 'greta@grealish-sports.com', avatar: 'GG', studioName: 'Grealish Training Center' },
-  { name: 'Roman Cruyff', email: 'roman.c@cruyff-academy.com', avatar: 'RC', studioName: 'Cruyff Football Development' },
-  { name: 'Benicio Bellingham', email: 'b.bellingham@pro-striker.com', avatar: 'BB', studioName: 'Bellingham Pro Academy' }
-];
 
 export default function ParentPortal({
   invoices,
@@ -87,21 +80,22 @@ export default function ParentPortal({
     return Array.from(map.values());
   }, [subscriptions, sessionEmail]);
 
-  const availableGuarantors = scopedGuarantors.length > 0 ? scopedGuarantors : GUARANTORS;
+  const availableGuarantors = scopedGuarantors;
 
   const [selectedParentEmail, setSelectedParentEmail] = useState<string>(
-    () => sessionEmail ?? GUARANTORS[0].email
+    () => sessionEmail ?? ''
   );
   const activeParent =
     availableGuarantors.find((p) => p.email.toLowerCase() === selectedParentEmail.toLowerCase()) ||
     availableGuarantors[0] ||
     (sessionEmail
       ? { name: sessionUser?.name || 'Parent Guarantor', email: sessionEmail, avatar: 'PG', studioName: '' }
-      : GUARANTORS[0]);
+      : null);
 
   // Selected invoices/subscriptions for this parent
-  const parentInvoices = invoices.filter(inv => inv.parentEmail === activeParent.email);
-  const parentSubscriptions = subscriptions.filter(sub => sub.parentEmail === activeParent.email);
+  const parentEmail = activeParent?.email ?? '';
+  const parentInvoices = invoices.filter(inv => inv.parentEmail === parentEmail);
+  const parentSubscriptions = subscriptions.filter(sub => sub.parentEmail === parentEmail);
 
   // Totals for this parent
   const outstandingAmount = parentInvoices
@@ -499,7 +493,35 @@ export default function ParentPortal({
                 const isPaused = sub.status === 'Paused';
                 const isExpanded = expandedSubId === sub.id;
 
-                return (
+  // A logged-in parent with no subscription under their email gets a clean
+  // empty state instead of falling back to any sample data.
+  if (!activeParent) {
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-brand-border pb-6">
+          <div>
+            <h2 className="font-sans text-xl font-bold text-white flex items-center gap-2">
+              Parent & Guarantor Portal
+            </h2>
+            <p className="font-sans text-xs text-gray-400 mt-1">
+              View your child&apos;s academy stats, subscriptions, and digital ledger statements.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-brand-surface-card border border-brand-border rounded-lg p-8 text-center space-y-3">
+          <User className="h-8 w-8 text-brand-gold mx-auto" />
+          <p className="font-sans text-sm font-bold text-white">No enrolment found for this portal ID</p>
+          <p className="font-sans text-xs text-gray-400">
+            We couldn&apos;t find a subscription linked to your Parent Login ID. If you believe this is an error,
+            please contact the academy office with your Portal ID.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
                   <div 
                     key={sub.id} 
                     className="border border-brand-border bg-brand-surface-card p-5 rounded-xs space-y-4 hover:border-gray-700 transition-colors"

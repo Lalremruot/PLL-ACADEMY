@@ -689,7 +689,7 @@ export default function Settings({
                     <label className="block text-gray-400 mb-1">Lead Coach / Instructor</label>
                     <input
                       type="text"
-                      placeholder="e.g. Stella Bellingham"
+                      placeholder="e.g. Coach Rajesh Kumar"
                       value={newPlanCoach}
                       onChange={e => setNewPlanCoach(e.target.value)}
                       className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"

@@ -1,6 +1,6 @@
 /**
  * Builds parent portal login IDs from a student's first name + random digits.
- * Example: "Thangminlel" → "Thangmin67876", "Liam Sterling" → "Liam48291"
+ * Example: "Aarav" → "Aarav48291"
  */
 
 export function extractFirstName(studentName: string): string {
