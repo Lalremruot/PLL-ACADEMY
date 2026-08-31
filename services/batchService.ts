@@ -1,12 +1,7 @@
 import { connectToDatabase } from '@/lib/mongodb';
 import { BatchModel } from '@/models/Batch';
 
-const INITIAL_BATCHES = [
-  'Elite Pro Squad',
-  'Under-15 Development Group',
-  'Weekend Advanced Training',
-  'Under-12 Elite Squad',
-];
+const INITIAL_BATCHES: string[] = [];
 
 let memoryBatches: string[] = [...INITIAL_BATCHES];
 

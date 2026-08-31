@@ -16,6 +16,8 @@
   --color-brand-border: #333333;
   --color-brand-gold: #D4AF37;
   --color-brand-gold-bright: #e9c349;
+  --color-brand-blue: #0093dd;
+  --color-brand-blue-bright: #1da7f0;
   --color-brand-emerald: #2D6A4F;
   --color-brand-cinnabar: #9B2226;
   --color-brand-amethyst: #7B2CBF;
@@ -50,6 +52,8 @@ html[data-theme='light'] {
   --color-brand-border: #d8d2c8;
   --color-brand-gold: #D4AF37;
   --color-brand-gold-bright: #c9a42c;
+  --color-brand-blue: #0093dd;
+  --color-brand-blue-bright: #0d83c4;
   --color-brand-emerald: #216b4b;
   --color-brand-cinnabar: #9B2226;
   --color-brand-amethyst: #6d24ab;
@@ -71,6 +75,12 @@ html[data-theme='dark'] {
   }
   .glow-gold-lg {
     box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+  }
+  .glow-blue {
+    box-shadow: 0 0 12px rgba(0, 147, 221, 0.45);
+  }
+  .glow-blue-lg {
+    box-shadow: 0 0 20px rgba(0, 147, 221, 0.6);
   }
   .glow-emerald {
     box-shadow: 0 0 12px rgba(45, 106, 79, 0.45);
@@ -182,6 +192,12 @@ html[data-theme='light'] .text-brand-gold {
 html[data-theme='light'] .text-brand-gold-bright {
   color: #a07d10;
 }
+html[data-theme='light'] .text-brand-blue {
+  color: #0071ab;
+}
+html[data-theme='light'] .text-brand-blue-bright {
+  color: #0d7db8;
+}
 html[data-theme='light'] .text-yellow-400 {
   color: #8a6a0b;
 }
@@ -220,6 +236,10 @@ html[data-theme='light'] .glow-gold {
 html[data-theme='light'] .glow-gold-lg {
   box-shadow: 0 2px 8px rgba(27, 25, 23, 0.16);
 }
+html[data-theme='light'] .glow-blue,
+html[data-theme='light'] .glow-blue-lg {
+  box-shadow: 0 1px 3px rgba(27, 25, 23, 0.12);
+}
 html[data-theme='light'] .glow-emerald {
   box-shadow: 0 1px 3px rgba(27, 25, 23, 0.12);
 }
@@ -243,8 +263,10 @@ html[data-theme='light'] .force-dark {
   --color-brand-surface-card: #262626;
   --color-brand-surface-modal: #2D2D2D;
   --color-brand-border: #333333;
-  --color-brand-gold: #D4AF37;
+--color-brand-gold: #D4AF37;
   --color-brand-gold-bright: #e9c349;
+  --color-brand-blue: #0093dd;
+  --color-brand-blue-bright: #1da7f0;
   --color-brand-emerald: #2D6A4F;
   --color-brand-cinnabar: #9B2226;
   --color-brand-amethyst: #7B2CBF;
@@ -285,6 +307,9 @@ html[data-theme='light'] .force-dark .glow-gold {
 html[data-theme='light'] .force-dark .glow-gold-lg {
   box-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
 }
+html[data-theme='light'] .force-dark .glow-blue {
+  box-shadow: 0 0 12px rgba(0, 147, 221, 0.45);
+}
 html[data-theme='light'] .force-dark .glow-emerald {
   box-shadow: 0 0 12px rgba(45, 106, 79, 0.45);
 }
@@ -309,6 +334,9 @@ html[data-theme='light'] .hover\:text-brand-gold:hover {
 }
 html[data-theme='light'] .hover\:text-brand-gold-bright:hover {
   color: #a07d10;
+}
+html[data-theme='light'] .hover\:text-brand-blue:hover {
+  color: #0071ab;
 }
 html[data-theme='light'] .hover\:text-brand-cinnabar:hover {
   color: var(--color-brand-cinnabar);

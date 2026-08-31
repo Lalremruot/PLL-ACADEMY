@@ -109,13 +109,7 @@ export interface FilmCourse {
   instructor: string;
 }
 
-export const FILM_COURSES: FilmCourse[] = [
-  { name: 'Striker Masterclass: Elite Finishing', tier: 'Premium', monthlyFee: 450, instructor: 'Marcus Sterling' },
-  { name: 'Midfield Maestro: Tactical Passing', tier: 'Standard', monthlyFee: 280, instructor: 'Sofia Kane' },
-  { name: 'Goalkeeping Advanced: Shot Stopping & Reflexes', tier: 'Premium', monthlyFee: 520, instructor: 'Roger Cruyff' },
-  { name: 'Defensive Wall: Backline Strategy & Positioning', tier: 'Standard', monthlyFee: 320, instructor: 'Thelma Grealish' },
-  { name: 'Pro Fitness & Conditioning: Speed & Agility', tier: 'Standard', monthlyFee: 300, instructor: 'Stella Bellingham' },
-];
+export const FILM_COURSES: FilmCourse[] = [];
 
 export interface ManagerPermissions {
   canViewStudents: boolean;

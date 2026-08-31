@@ -1500,7 +1500,7 @@ export default function Settings({
                   <label className="block text-gray-400 mb-1">Manager Email Address</label>
                   <input
                     type="email"
-                    placeholder="manager@strikeracademy.edu"
+                    placeholder="manager@pllacademy.com"
                     value={newManagerEmail}
                     onChange={(e) => setNewManagerEmail(e.target.value)}
                     className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"

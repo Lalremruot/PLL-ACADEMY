@@ -148,12 +148,7 @@ export default function App() {
       setInvoices(INITIAL_INVOICES);
       setSubscriptions(INITIAL_SUBSCRIPTIONS);
       setCourses(FILM_COURSES);
-      setBatches([
-        'Under-12 Elite Squad',
-        'Under-15 Development Group',
-        'Weekend Advanced Training',
-        'Elite Pro Squad',
-      ]);
+      setBatches([]);
       setManagerPermissions(DEFAULT_MANAGER_PERMISSIONS);
       setAcademySettings(DEFAULT_ACADEMY_SETTINGS);
     } finally {
@@ -410,7 +405,7 @@ export default function App() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-brand-bg font-sans">
         <div className="flex flex-col items-center gap-3" role="status" aria-label="Loading session">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-gold border-t-transparent" />
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-blue border-t-transparent" />
           <span className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
             Restoring session
           </span>
@@ -420,7 +415,7 @@ export default function App() {
   }
 
   if (!loggedInUser) {
-    return <Login subscriptions={subscriptions} onLoginSuccess={handleLoginSuccess} />;
+    return <Login onLoginSuccess={handleLoginSuccess} />;
   }
 
   const renderTabButton = (tab: ConsoleTab, label: string): React.ReactNode => (
@@ -430,7 +425,7 @@ export default function App() {
       onClick={() => setAdminTab(tab)}
       className={`shrink-0 whitespace-nowrap px-3 sm:px-4 py-2 text-[11px] sm:text-xs font-sans uppercase tracking-wider rounded-xs transition-all cursor-pointer border ${
         adminTab === tab
-          ? 'bg-brand-gold text-black border-brand-gold font-bold shadow-md shadow-brand-gold/10'
+          ? 'bg-brand-blue text-black border-brand-blue font-bold shadow-md shadow-brand-blue/10'
           : 'bg-brand-surface-card text-gray-400 border-brand-border hover:text-white hover:border-gray-700'
       }`}
     >
@@ -439,18 +434,18 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen bg-brand-bg text-brand-ink font-sans selection:bg-brand-gold selection:text-black antialiased">
+    <div className="min-h-screen bg-brand-bg text-brand-ink font-sans selection:bg-brand-blue selection:text-black antialiased">
       <header className="sticky top-0 z-40 border-b border-brand-border bg-brand-bg/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xs bg-brand-gold text-black shadow-md shadow-brand-gold/10">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xs bg-brand-blue text-black shadow-md shadow-brand-blue/10">
               <Trophy className="h-5 w-5" />
             </div>
             <div>
               <span className="font-sans text-sm font-bold uppercase tracking-wider text-white">
                 PLL Academy
               </span>
-              <span className="ml-2.5 font-mono text-[10px] text-brand-gold uppercase tracking-widest hidden sm:inline-block border border-brand-gold/30 px-1.5 py-0.5 rounded-xs bg-brand-gold/5">
+              <span className="ml-2.5 font-mono text-[10px] text-brand-blue uppercase tracking-widest hidden sm:inline-block border border-brand-blue/30 px-1.5 py-0.5 rounded-xs bg-brand-blue/5">
                 Pro Academy Engine
               </span>
             </div>
@@ -458,7 +453,7 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             <div className="hidden sm:flex flex-col items-end">
-              <span className="font-mono text-[10px] text-brand-gold uppercase tracking-widest">
+              <span className="font-mono text-[10px] text-brand-blue uppercase tracking-widest">
                 {roleBadgeLabel(loggedInUser.role)}
               </span>
               <span className="font-mono text-[10px] text-gray-500 truncate max-w-[200px]">
@@ -468,7 +463,7 @@ export default function App() {
             <button
               type="button"
               onClick={toggleTheme}
-              className="flex items-center justify-center h-8 w-8 rounded-xs border border-brand-border hover:border-brand-gold/60 bg-brand-charcoal hover:bg-brand-gold/10 text-gray-400 hover:text-brand-gold transition-all cursor-pointer"
+              className="flex items-center justify-center h-8 w-8 rounded-xs border border-brand-border hover:border-brand-blue/60 bg-brand-charcoal hover:bg-brand-blue/10 text-gray-400 hover:text-brand-blue transition-all cursor-pointer"
               title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               aria-pressed={theme === 'light'}
@@ -665,7 +660,7 @@ export default function App() {
                 !canAccessReports &&
                 !canOpenSettings && (
                   <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-8 text-center space-y-2">
-                    <Navigation className="h-6 w-6 text-brand-gold mx-auto" />
+                    <Navigation className="h-6 w-6 text-brand-blue mx-auto" />
                     <p className="font-sans text-sm text-white font-bold">No permissions enabled</p>
                     <p className="font-sans text-xs text-gray-400">
                       Ask an administrator to grant manager access flags in Settings.

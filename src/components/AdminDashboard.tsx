@@ -216,7 +216,7 @@ export default function AdminDashboard({
             <button
               id="admin-new-invoice-btn"
               onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-2 rounded-xs bg-brand-gold hover:bg-brand-gold-bright px-4 py-2 font-sans text-xs font-semibold text-black transition-all cursor-pointer shadow-md"
+              className="flex items-center gap-2 rounded-xs bg-brand-blue hover:bg-brand-blue-bright px-4 py-2 font-sans text-xs font-semibold text-black transition-all cursor-pointer shadow-md"
             >
               <Plus className="h-4 w-4 shrink-0" />
               Register Invoice
@@ -230,7 +230,7 @@ export default function AdminDashboard({
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden border border-brand-gold bg-brand-surface-card p-6 rounded-xs"
+                className="overflow-hidden border border-brand-blue bg-brand-surface-card p-6 rounded-xs"
               >
                 <h3 className="font-sans text-sm font-semibold text-white uppercase tracking-wider mb-4 flex items-center gap-1.5">
                   <BookOpen className="h-4 w-4 text-brand-gold" />

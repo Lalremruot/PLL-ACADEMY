@@ -12,12 +12,7 @@ import { clearStudentAttendance } from '@/services/studentAttendanceService';
 import { clearManagerAttendance } from '@/services/managerAttendanceService';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
-const INITIAL_BATCHES = [
-  'Elite Pro Squad',
-  'Under-15 Development Group',
-  'Weekend Advanced Training',
-  'Under-12 Elite Squad',
-];
+const INITIAL_BATCHES: string[] = [];
 
 export async function POST(req: NextRequest) {
   const auth = requireAuth(req, ['admin']);
