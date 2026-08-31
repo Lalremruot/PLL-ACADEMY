@@ -44,6 +44,13 @@ export async function POST(req: NextRequest) {
 
     return successResponse(order, 'Razorpay mandate order created', 200);
   } catch (err: any) {
-    return errorResponse(err.message || 'Failed to create mandate order', 500);
+    // Surface the underlying Razorpay reason (detail/description) so the
+    // parent gets something actionable, not just the generic fallback.
+    const detail =
+      err?.error?.description ||
+      err?.error?.reason ||
+      err?.response?.data?.error?.description ||
+      err?.message;
+    return errorResponse(detail || 'Failed to create mandate order', 500);
   }
 }

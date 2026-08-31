@@ -257,7 +257,9 @@ export async function createRazorpaySubscriptionOrder(input: {
   const creds = await getRazorpayCredentials();
   const client = getRazorpayClient(creds);
   const amount = Math.round(input.amount * 100);
-  const expireAt = Math.floor(Date.now() / 1000) + 10 * 365 * 24 * 3600;
+  // Razorpay caps an e-mandate token's expiry at 365 days from order creation.
+  // Setting it further out (e.g. 10 years) makes Razorpay reject the order.
+  const expireAt = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
 
   // An e-mandate registration is an authorization order: Razorpay requires a
   // customer_id on it, and rejects the order outright without one.
