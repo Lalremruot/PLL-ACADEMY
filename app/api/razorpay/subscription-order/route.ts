@@ -40,6 +40,7 @@ export async function POST(req: NextRequest) {
       amount: sub.monthlyFee,
       parentName: sub.parentName,
       parentEmail: sub.parentEmail,
+      parentPhone: sub.phoneNumber,
     });
 
     return successResponse(order, 'Razorpay mandate order created', 200);

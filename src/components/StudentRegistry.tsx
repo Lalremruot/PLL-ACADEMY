@@ -66,6 +66,7 @@ export default function StudentRegistry({
     education: '',
     familyDetails: '',
     profilePic: '',
+    phoneNumber: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -86,6 +87,7 @@ export default function StudentRegistry({
       education: '',
       familyDetails: '',
       profilePic: '',
+      phoneNumber: '',
     });
     setFormErrors({});
   };
@@ -115,6 +117,7 @@ export default function StudentRegistry({
       education: sub.education || '',
       familyDetails: sub.familyDetails || '',
       profilePic: sub.profilePic || '',
+      phoneNumber: sub.phoneNumber || '',
     });
     setFormErrors({});
   };
@@ -129,6 +132,10 @@ export default function StudentRegistry({
       errors.parentEmail = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.parentEmail)) {
       errors.parentEmail = 'Invalid email address';
+    }
+    const phone = formData.phoneNumber.trim();
+    if (phone && !/^[6-9]\d{9}$/.test(phone)) {
+      errors.phoneNumber = 'Enter a valid 10-digit Indian mobile number';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -163,6 +170,7 @@ export default function StudentRegistry({
         education: formData.education.trim() || undefined,
         familyDetails: formData.familyDetails.trim() || undefined,
         profilePic: formData.profilePic.trim() || undefined,
+        phoneNumber: phone || undefined,
       });
       setEditingSubscription(null);
     } else {
@@ -184,6 +192,7 @@ export default function StudentRegistry({
         education: formData.education.trim() || undefined,
         familyDetails: formData.familyDetails.trim() || undefined,
         profilePic: formData.profilePic.trim() || undefined,
+        phoneNumber: phone || undefined,
       });
       setShowAddModal(false);
     }
@@ -1153,6 +1162,25 @@ export default function StudentRegistry({
                   />
                   {formErrors.parentEmail && (
                     <p className="text-brand-cinnabar text-[10px] mt-1 font-sans">{formErrors.parentEmail}</p>
+                  )}
+                </div>
+
+                {/* Parent Phone */}
+                <div>
+                  <label className="block font-mono text-[9px] uppercase tracking-wider text-gray-400 mb-1.5">
+                    Parent Mobile Number
+                  </label>
+                  <input 
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className={`w-full bg-brand-charcoal border rounded-xs px-3.5 py-2.5 text-xs text-white focus:border-brand-gold outline-none transition-colors ${
+                      formErrors.phoneNumber ? 'border-brand-cinnabar' : 'border-brand-border'
+                    }`}
+                    placeholder="e.g. 9876543210"
+                  />
+                  {formErrors.phoneNumber && (
+                    <p className="text-brand-cinnabar text-[10px] mt-1 font-sans">{formErrors.phoneNumber}</p>
                   )}
                 </div>
 

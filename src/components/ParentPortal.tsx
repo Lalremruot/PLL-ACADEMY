@@ -126,6 +126,7 @@ export default function ParentPortal({
     education: '',
     familyDetails: '',
     profilePic: '',
+    phoneNumber: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
@@ -147,6 +148,7 @@ export default function ParentPortal({
       education: sub.education || '',
       familyDetails: sub.familyDetails || '',
       profilePic: sub.profilePic || '',
+      phoneNumber: sub.phoneNumber || '',
     });
     setFormErrors({});
   };
@@ -162,6 +164,10 @@ export default function ParentPortal({
       errors.parentEmail = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.parentEmail)) {
       errors.parentEmail = 'Invalid email address';
+    }
+    const phone = formData.phoneNumber.trim();
+    if (phone && !/^[6-9]\d{9}$/.test(phone)) {
+      errors.phoneNumber = 'Enter a valid 10-digit Indian mobile number';
     }
 
     if (Object.keys(errors).length > 0) {
@@ -192,6 +198,7 @@ export default function ParentPortal({
         education: formData.education.trim() || undefined,
         familyDetails: formData.familyDetails.trim() || undefined,
         profilePic: formData.profilePic.trim() || undefined,
+        phoneNumber: phone || undefined,
       });
     }
     setEditingSubscription(null);
@@ -392,6 +399,18 @@ export default function ParentPortal({
   const handleEnableAutoDebit = async (sub: Subscription) => {
     setMandateSubId(sub.id);
     setCheckoutError('');
+
+    // Razorpay requires the parent's 10-digit mobile on the customer record for
+    // an e-mandate. If it's not saved yet, ask the parent to add it first.
+    if (!sub.phoneNumber || !/^[6-9]\d{9}$/.test(sub.phoneNumber)) {
+      setMandateSubId(null);
+      handleOpenEditModal(sub);
+      setFormErrors((prev) => ({
+        ...prev,
+        phoneNumber: 'Add your 10-digit mobile number to set up auto-debit.',
+      }));
+      return;
+    }
 
     // Auto-debit needs the parent's UPI/bank details via Razorpay. Those are
     // always collected by the mandate checkout itself, but to make the flow
@@ -1267,6 +1286,24 @@ export default function ParentPortal({
                           placeholder="St. Mary's Academy, Grade 9"
                         />
                       </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1 font-sans">
+                        Parent Mobile Number <span className="text-brand-gold">(required for auto-debit)</span>
+                      </label>
+                      <input
+                        type="tel"
+                        value={formData.phoneNumber}
+                        onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
+                        className={`w-full bg-brand-charcoal border text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono ${
+                          formErrors.phoneNumber ? 'border-brand-cinnabar' : 'border-brand-border focus:border-brand-gold'
+                        }`}
+                        placeholder="e.g. 9876543210"
+                      />
+                      {formErrors.phoneNumber && (
+                        <p className="text-brand-cinnabar text-[10px] mt-1 font-mono">{formErrors.phoneNumber}</p>
+                      )}
                     </div>
 
                     <div>

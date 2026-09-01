@@ -228,9 +228,9 @@ function resolveMandateMaxAmount(amountPaise: number): number {
 
 /**
  * Returns the Razorpay customer id for a parent, creating the customer when it
- * does not exist yet. `fail_existing: 0` makes this idempotent: Razorpay
- * returns the existing customer instead of erroring when the email is already
- * registered, so repeat mandate setups reuse the same customer.
+ * does not exist yet. Idempotent: a parent with the same email (or contact) is
+ * looked up first and reused, so repeated mandate setups never error with
+ * "Customer already exists for this merchant" and never create duplicates.
  */
 export async function ensureRazorpayCustomer(input: {
   name?: string;
@@ -239,6 +239,19 @@ export async function ensureRazorpayCustomer(input: {
 }): Promise<string> {
   const creds = await getRazorpayCredentials();
   const client = getRazorpayClient(creds);
+
+  if (input.email) {
+    // customers.all accepts an `email` filter at runtime even though the SDK
+    // types only surface pagination options, so cast the params and result.
+    const existing = (await client.customers.all({ email: input.email, count: 10 } as any)) as {
+      items?: Array<{ id: string; email?: string }>;
+    };
+    const match = existing?.items?.find(
+      (c) => c.email && c.email.toLowerCase() === (input.email as string).toLowerCase()
+    );
+    if (match) return match.id;
+  }
+
   const customer = await client.customers.create({
     name: input.name || 'Academy Parent',
     email: input.email || undefined,
@@ -253,6 +266,7 @@ export async function createRazorpaySubscriptionOrder(input: {
   amount: number;
   parentName?: string;
   parentEmail?: string;
+  parentPhone?: string;
 }): Promise<RazorpaySubscriptionOrderResult> {
   const creds = await getRazorpayCredentials();
   const client = getRazorpayClient(creds);
@@ -262,10 +276,12 @@ export async function createRazorpaySubscriptionOrder(input: {
   const expireAt = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
 
   // An e-mandate registration is an authorization order: Razorpay requires a
-  // customer_id on it, and rejects the order outright without one.
+  // customer_id on it, and rejects the order outright without one. The
+  // customer also needs the parent's 10-digit mobile as `contact`.
   const customerId = await ensureRazorpayCustomer({
     name: input.parentName,
     email: input.parentEmail,
+    contact: input.parentPhone,
   });
 
   const params: any = {

@@ -26,6 +26,7 @@ function mapDoc(doc: Record<string, unknown>): Subscription {
     familyDetails: doc.familyDetails as string | undefined,
     profilePic: doc.profilePic as string | undefined,
     parentLoginId: doc.parentLoginId as string | undefined,
+    phoneNumber: doc.phoneNumber as string | undefined,
     autoDebit: doc.autoDebit as boolean | undefined,
     razorpayTokenId: doc.razorpayTokenId as string | undefined,
     footballStats: doc.footballStats as Subscription['footballStats'],
@@ -113,6 +114,7 @@ export async function createSubscription(subData: Partial<Subscription>): Promis
     education: subData.education,
     familyDetails: subData.familyDetails,
     profilePic: subData.profilePic,
+    phoneNumber: subData.phoneNumber,
     parentLoginId:
       subData.parentLoginId ||
       generateParentLoginId(subData.studentName || 'New Athlete', existingIds),

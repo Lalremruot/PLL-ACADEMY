@@ -42,6 +42,8 @@ export interface Subscription {
   profilePic?: string; // e.g. Avatar image URL
   /** Unique passwordless login id for parents (e.g. Liam48291) */
   parentLoginId?: string;
+  /** Parent 10-digit Indian mobile; required by Razorpay for e-mandate setup */
+  phoneNumber?: string;
   autoDebit?: boolean; // Recurring e-mandate authorized with Razorpay
   razorpayTokenId?: string; // Razorpay token backing the auto-debit mandate
   footballStats?: PlayerFootballStats;

@@ -19,6 +19,8 @@ export interface ISubscription extends Document {
   familyDetails?: string;
   profilePic?: string;
   parentLoginId?: string;
+  /** Parent 10-digit Indian mobile; required by Razorpay for e-mandate setup */
+  phoneNumber?: string;
   autoDebit?: boolean;
   razorpayTokenId?: string;
   createdAt?: Date;
@@ -45,6 +47,7 @@ const SubscriptionSchema: Schema = new Schema(
     familyDetails: { type: String },
     profilePic: { type: String },
     parentLoginId: { type: String, unique: true, sparse: true, trim: true },
+    phoneNumber: { type: String, trim: true },
     autoDebit: { type: Boolean },
     razorpayTokenId: { type: String },
   },
