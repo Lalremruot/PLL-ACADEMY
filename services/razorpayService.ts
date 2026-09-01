@@ -228,9 +228,10 @@ function resolveMandateMaxAmount(amountPaise: number): number {
 
 /**
  * Returns the Razorpay customer id for a parent, creating the customer when it
- * does not exist yet. Idempotent: a parent with the same email (or contact) is
- * looked up first and reused, so repeated mandate setups never error with
- * "Customer already exists for this merchant" and never create duplicates.
+ * does not exist yet. Idempotent: a parent with the same email is looked up
+ * first and reused — but if that existing customer has no `contact`, the
+ * recurring (e-mandate) order is rejected ("contact field is required for
+ * recurring links"), so we patch the missing phone onto it before returning.
  */
 export async function ensureRazorpayCustomer(input: {
   name?: string;
@@ -244,12 +245,19 @@ export async function ensureRazorpayCustomer(input: {
     // customers.all accepts an `email` filter at runtime even though the SDK
     // types only surface pagination options, so cast the params and result.
     const existing = (await client.customers.all({ email: input.email, count: 10 } as any)) as {
-      items?: Array<{ id: string; email?: string }>;
+      items?: Array<{ id: string; email?: string; contact?: string }>;
     };
     const match = existing?.items?.find(
       (c) => c.email && c.email.toLowerCase() === (input.email as string).toLowerCase()
     );
-    if (match) return match.id;
+    if (match) {
+      // A stale customer without a phone (e.g. created by an earlier bug) would
+      // block the e-mandate order. Back-fill the contact in that case.
+      if (input.contact && !match.contact) {
+        await client.customers.edit(match.id, { contact: input.contact } as any);
+      }
+      return match.id;
+    }
   }
 
   const customer = await client.customers.create({
