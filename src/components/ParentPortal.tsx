@@ -243,45 +243,69 @@ export default function ParentPortal({
     }
   };
 
+  // Opens Razorpay checkout to pay a single invoice. Returns a promise that
+  // resolves once the payment is verified with the server, or rejects if the
+  // checkout errors. `onDismiss` is called if the parent closes the modal.
+  const openInvoiceCheckout = (invoice: Invoice, onDismiss?: () => void) =>
+    new Promise<void>(async (resolve, reject) => {
+      setCheckoutError('');
+      setIsProcessing(true);
+      try {
+        const order = await apiCreateRazorpayOrder(invoice.id);
+        await loadRazorpayScript();
+
+        const RazorpayCtor = (window as any).Razorpay;
+        if (!RazorpayCtor) throw new Error('Razorpay checkout is unavailable.');
+
+        const options = {
+          key: order.keyId,
+          order_id: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'Academy Ledger',
+          description: invoice.courseName,
+          handler: async (response: any) => {
+            try {
+              await handlePaymentSuccess(response, invoice.id);
+              resolve();
+            } catch (err: any) {
+              setCheckoutError(err.message || 'Payment verification failed. Contact the academy.');
+              reject(err);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setIsProcessing(false);
+              onDismiss?.();
+              reject(new Error('PAYMENT_DISMISSED'));
+            },
+          },
+          prefill: {
+            name: activeParent.name,
+            email: activeParent.email,
+          },
+          theme: {
+            color: '#d4af37',
+          },
+        };
+
+        const rzp = new RazorpayCtor(options);
+        rzp.open();
+      } catch (err: any) {
+        setCheckoutError(err.message || 'Unable to start payment.');
+        setIsProcessing(false);
+        reject(err);
+      }
+    });
+
   // Initiate Razorpay checkout for the selected invoice
   const handleSettlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutInvoice) return;
-    setCheckoutError('');
-    setIsProcessing(true);
-
     try {
-      const order = await apiCreateRazorpayOrder(checkoutInvoice.id);
-      await loadRazorpayScript();
-
-      const RazorpayCtor = (window as any).Razorpay;
-      if (!RazorpayCtor) throw new Error('Razorpay checkout is unavailable.');
-
-      const options = {
-        key: order.keyId,
-        order_id: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'Academy Ledger',
-        description: checkoutInvoice.courseName,
-        handler: (response: any) => handlePaymentSuccess(response, checkoutInvoice.id),
-        modal: {
-          ondismiss: () => setIsProcessing(false),
-        },
-        prefill: {
-          name: activeParent.name,
-          email: activeParent.email,
-        },
-        theme: {
-          color: '#d4af37',
-        },
-      };
-
-      const rzp = new RazorpayCtor(options);
-      rzp.open();
-    } catch (err: any) {
-      setCheckoutError(err.message || 'Unable to start payment.');
-      setIsProcessing(false);
+      await openInvoiceCheckout(checkoutInvoice);
+    } catch {
+      // handled / dismissed; keep the modal open on the returned error
     }
   };
 
@@ -307,44 +331,100 @@ export default function ParentPortal({
     }
   };
 
+  // Opens the Razorpay recurring / e-mandate checkout for a subscription. The
+  // parent authorizes the standing instruction; the saved token backs future
+  // auto-debits. Returns a promise resolving on mandate success.
+  const openMandateCheckout = (sub: Subscription) =>
+    new Promise<void>(async (resolve, reject) => {
+      setMandateSubId(sub.id);
+      setCheckoutError('');
+      try {
+        const order = await apiCreateRazorpaySubscriptionOrder(sub.id);
+        await loadRazorpayScript();
+
+        const RazorpayCtor = (window as any).Razorpay;
+        if (!RazorpayCtor) throw new Error('Razorpay checkout is unavailable.');
+
+        const options = {
+          key: order.keyId,
+          order_id: order.orderId,
+          amount: order.amount,
+          currency: order.currency,
+          // Registration payment: Checkout only collects an e-mandate when it is
+          // opened in recurring mode against the order's customer.
+          customer_id: order.customerId,
+          recurring: 1,
+          name: 'Academy Ledger',
+          description: `Monthly auto-debit mandate — ${sub.courseName}`,
+          handler: async (response: any) => {
+            try {
+              await handleMandateSuccess(response, sub);
+              resolve();
+            } catch (err: any) {
+              setCheckoutError(err.message || 'Auto-debit activation failed. Contact the academy.');
+              reject(err);
+            }
+          },
+          modal: {
+            ondismiss: () => {
+              setMandateSubId(null);
+              reject(new Error('MANDATE_DISMISSED'));
+            },
+          },
+          prefill: {
+            name: activeParent.name,
+            email: activeParent.email,
+          },
+          theme: {
+            color: '#d4af37',
+          },
+        };
+
+        const rzp = new RazorpayCtor(options);
+        rzp.open();
+      } catch (err: any) {
+        setCheckoutError(err.message || 'Unable to set up auto-debit.');
+        setMandateSubId(null);
+        reject(err);
+      }
+    });
+
   const handleEnableAutoDebit = async (sub: Subscription) => {
     setMandateSubId(sub.id);
     setCheckoutError('');
+
+    // Auto-debit needs the parent's UPI/bank details via Razorpay. Those are
+    // always collected by the mandate checkout itself, but to make the flow
+    // coherent the parent must first settle an outstanding invoice upfront:
+    // pay the first bill, then authorize the standing instruction for the rest.
+    const hasPaidForCourse = parentInvoices.some(
+      (inv) => inv.status === 'Success' && inv.courseName === sub.courseName
+    );
+
     try {
-      const order = await apiCreateRazorpaySubscriptionOrder(sub.id);
-      await loadRazorpayScript();
-
-      const RazorpayCtor = (window as any).Razorpay;
-      if (!RazorpayCtor) throw new Error('Razorpay checkout is unavailable.');
-
-      const options = {
-        key: order.keyId,
-        order_id: order.orderId,
-        amount: order.amount,
-        currency: order.currency,
-        // Registration payment: Checkout only collects an e-mandate when it is
-        // opened in recurring mode against the order's customer.
-        customer_id: order.customerId,
-        recurring: 1,
-        name: 'Academy Ledger',
-        description: `Monthly auto-debit mandate — ${sub.courseName}`,
-        handler: (response: any) => handleMandateSuccess(response, sub),
-        modal: {
-          ondismiss: () => setMandateSubId(null),
-        },
-        prefill: {
-          name: activeParent.name,
-          email: activeParent.email,
-        },
-        theme: {
-          color: '#d4af37',
-        },
-      };
-
-      const rzp = new RazorpayCtor(options);
-      rzp.open();
+      if (!hasPaidForCourse) {
+        const pendingInvoice = parentInvoices.find(
+          (inv) => inv.status !== 'Success' && inv.courseName === sub.courseName
+        );
+        if (pendingInvoice) {
+          // Pay the first invoice, then auto-continue into the mandate setup.
+          await openInvoiceCheckout(pendingInvoice, () => setMandateSubId(null));
+          await openMandateCheckout(sub);
+        } else {
+          // No outstanding invoice for this course — nothing to pay first, so
+          // go straight to the mandate registration.
+          await openMandateCheckout(sub);
+        }
+      } else {
+        // Already has a successful payment for this course — mandate only.
+        await openMandateCheckout(sub);
+      }
     } catch (err: any) {
-      setCheckoutError(err.message || 'Unable to set up auto-debit.');
+      // Dismissals (PAYMENT_DISMISSED / MANDATE_DISMISSED) are intentional and
+      // already cleared the busy state; don't surface them as an error.
+      if (!err?.message?.includes('DISMISSED')) {
+        setCheckoutError(err.message || 'Unable to set up auto-debit.');
+      }
       setMandateSubId(null);
     }
   };
