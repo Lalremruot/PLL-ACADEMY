@@ -309,9 +309,9 @@ export async function createRazorpaySubscriptionOrder(input: {
   // Setting it further out (e.g. 10 years) makes Razorpay reject the order.
   const expireAt = Math.floor(Date.now() / 1000) + 365 * 24 * 3600;
 
-  // An e-mandate registration is an authorization order: Razorpay requires a
-  // customer_id on it, and rejects the order outright without one. The
-  // customer also needs the parent's 10-digit mobile as `contact`.
+  // An auto-debit (mandate) registration is an authorization order: Razorpay
+  // requires a customer_id on it, and rejects the order outright without one.
+  // The customer also needs the parent's 10-digit mobile as `contact`.
   const customerId = await ensureRazorpayCustomer({
     name: input.parentName,
     email: input.parentEmail,
@@ -322,12 +322,14 @@ export async function createRazorpaySubscriptionOrder(input: {
     amount,
     currency: 'INR',
     receipt: `SUB-${input.subscriptionId}`,
-    method: 'emandate',
+    // UPI Autopay: a standing instruction the parent approves once in their UPI
+    // app, after which Razorpay auto-debits the UPI handle each month.
+    method: 'upi',
     customer_id: customerId,
     payment_capture: 1,
     notes: { subscriptionId: input.subscriptionId, type: 'subscription' },
     token: {
-      auth_type: 'netbanking',
+      auth_type: 'upi',
       max_amount: resolveMandateMaxAmount(amount),
       expire_at: expireAt,
       notes: { subscriptionId: input.subscriptionId },
