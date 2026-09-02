@@ -129,7 +129,6 @@ function AttendanceRing({ rate }: { rate: number }) {
 
 export default function PlayerProfileStats({ subscription }: PlayerProfileStatsProps) {
   const stats = getPlayerStats(subscription);
-  const isGk = stats.position === 'GK';
   const [attendanceRecords, setAttendanceRecords] = useState<StudentAttendanceRecord[]>([]);
 
   useEffect(() => {
@@ -149,6 +148,52 @@ export default function PlayerProfileStats({ subscription }: PlayerProfileStatsP
     .map((n) => n[0])
     .join('')
     .slice(0, 2);
+
+  if (!stats) {
+    return (
+      <div className="space-y-6">
+        <div className="force-dark relative overflow-hidden rounded-xs border border-brand-border bg-gradient-to-br from-[#1a1818] via-brand-charcoal to-[#0d0c0c]">
+          <div className="relative p-6 md:p-8 flex flex-col md:flex-row gap-5 items-center md:items-center">
+            <div className="relative shrink-0">
+              <div className="w-24 h-28 rounded-xs overflow-hidden border-2 border-brand-border/40 bg-brand-surface-card">
+                {subscription.profilePic ? (
+                  <img
+                    src={subscription.profilePic}
+                    alt={subscription.studentName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover object-top"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-brand-surface-card to-[#141313]">
+                    <span className="font-sans text-3xl font-bold text-brand-gold/40">{initials}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="flex-1 text-center md:text-left min-w-0">
+              <h3 className="font-sans text-2xl md:text-3xl font-extrabold text-white tracking-tight truncate">
+                {subscription.studentName}
+              </h3>
+              <p className="font-sans text-sm text-brand-gold/90 mt-1 font-medium">{subscription.courseName}</p>
+              <p className="font-sans text-xs text-gray-400 mt-2">No performance statistics recorded yet.</p>
+            </div>
+          </div>
+        </div>
+
+        <section className="bg-brand-surface-card border border-brand-border rounded-xs p-8 flex flex-col items-center justify-center text-center">
+          <div className="w-14 h-14 rounded-full bg-brand-charcoal border border-brand-border flex items-center justify-center mb-3">
+            <Activity className="h-6 w-6 text-gray-500" />
+          </div>
+          <h4 className="font-sans text-sm font-bold text-white uppercase tracking-wider">No Match Statistics Yet</h4>
+          <p className="font-sans text-xs text-gray-400 max-w-sm mt-1.5">
+            Once a coach records matches, the player&apos;s rating, season form, and recent match log will appear here.
+          </p>
+        </section>
+      </div>
+    );
+  }
+
+  const isGk = stats.position === 'GK';
 
   return (
     <div className="space-y-6">
@@ -229,7 +274,7 @@ export default function PlayerProfileStats({ subscription }: PlayerProfileStatsP
           {/* OVR + attendance */}
           <div className="flex flex-row lg:flex-col items-center gap-6 shrink-0">
             <RatingRing rating={stats.overallRating} />
-            <AttendanceRing rate={attendanceRecords.length > 0 ? attendance.rate : 85} />
+            <AttendanceRing rate={attendanceRecords.length > 0 ? attendance.rate : 0} />
           </div>
         </div>
       </div>

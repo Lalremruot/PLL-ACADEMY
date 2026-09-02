@@ -102,7 +102,9 @@ export async function createSubscription(subData: Partial<Subscription>): Promis
     parentName: subData.parentName || 'Guardian',
     parentEmail: subData.parentEmail || 'guardian@footballmail.com',
     courseName: subData.courseName || 'Pro Academy Program',
-    status: subData.status || 'Active',
+    // New subscriptions start Paused so a coach must explicitly activate the
+    // student before the paid program begins; no payment is ever auto-triggered.
+    status: subData.status || 'Paused',
     tier: subData.tier || 'Standard',
     monthlyFee: subData.monthlyFee || 300,
     nextBillingDate: subData.nextBillingDate || new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0],
