@@ -8,6 +8,8 @@ import {
 import { Invoice, Subscription, PaymentStatus, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
 import PlayerProfileStats from './player/PlayerProfileStats';
+import ProfilePicUpload from './ProfilePicUpload';
+import AttendanceSummary from './AttendanceSummary';
 import {
   apiCreateRazorpayOrder,
   apiCreateRazorpaySubscriptionOrder,
@@ -98,9 +100,9 @@ export default function ParentPortal({
   const parentSubscriptions = subscriptions.filter(sub => sub.parentEmail === parentEmail);
 
   // Totals for this parent
-  const outstandingAmount = parentInvoices
-    .filter(inv => inv.status !== 'Success')
-    .reduce((sum, inv) => sum + inv.amount, 0);
+  const outstandingInvoices = parentInvoices.filter(inv => inv.status !== 'Success');
+  const outstandingAmount = outstandingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
+  const outstandingCount = outstandingInvoices.length;
 
   const activeBillingAmount = parentSubscriptions
     .filter(sub => sub.status === 'Active')
@@ -555,7 +557,9 @@ export default function ParentPortal({
             )}
           </div>
           <p className="font-sans text-xs text-gray-500 mt-1">
-            {outstandingAmount > 0 ? 'Immediate settlement required' : 'All billing contracts cleared'}
+            {outstandingAmount > 0
+              ? `Across ${outstandingCount} unpaid bill${outstandingCount !== 1 ? 's' : ''} — settle each invoice individually`
+              : 'All billing contracts cleared'}
           </p>
         </div>
 
@@ -776,6 +780,9 @@ export default function ParentPortal({
                         </button>
                       </div>
                     </div>
+
+                    {/* Top-level attendance for this athlete (not inside the expanded profile) */}
+                    <AttendanceSummary subscription={sub} months={3} />
 
                     {isActive && (
                       <div className="space-y-2.5">
@@ -1154,13 +1161,10 @@ export default function ParentPortal({
                       </div>
 
                       <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Profile Image URL</label>
-                        <input
-                          type="url"
+                        <ProfilePicUpload
                           value={formData.profilePic}
-                          onChange={e => setFormData({ ...formData, profilePic: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors"
-                          placeholder="https://images.unsplash.com/..."
+                          onChange={(dataUrl) => setFormData({ ...formData, profilePic: dataUrl })}
+                          compact
                         />
                       </div>
                     </div>

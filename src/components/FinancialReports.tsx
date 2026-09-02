@@ -14,6 +14,7 @@ interface FinancialReportsProps {
   subscriptions: Subscription[];
   batches?: string[];
   isMobileMode?: boolean;
+  isAdmin?: boolean;
   onSelectInvoice?: (invoice: Invoice) => void;
 }
 
@@ -22,6 +23,7 @@ export default function FinancialReports({
   subscriptions,
   batches = [],
   isMobileMode = false,
+  isAdmin = true,
   onSelectInvoice
 }: FinancialReportsProps) {
   const [statusFilter, setStatusFilter] = useState<'All' | 'Success' | 'Failed' | 'Pending'>('All');
@@ -187,9 +189,9 @@ export default function FinancialReports({
             <p className="font-sans text-[10px] text-gray-400 font-semibold uppercase tracking-widest">
               Total Revenue
             </p>
-            <h2 className="font-sans text-3xl font-extrabold text-brand-gold mt-2">
-              ₹{adjustedTotalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </h2>
+<h2 className="font-sans text-3xl font-extrabold text-brand-gold mt-2">
+  {isAdmin ? `₹${adjustedTotalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
+</h2>
           </div>
           <div className="flex items-center gap-1.5 text-brand-emerald mt-4">
             <TrendingUp className="h-4 w-4 shrink-0" />
@@ -205,9 +207,9 @@ export default function FinancialReports({
             <p className="font-sans text-[10px] text-gray-400 font-semibold uppercase tracking-widest">
               Collection Rate
             </p>
-            <h2 className="font-sans text-3xl font-extrabold text-white mt-2">
-              {collectionRate}%
-            </h2>
+<h2 className="font-sans text-3xl font-extrabold text-white mt-2">
+  {isAdmin ? `${collectionRate}%` : '••••••'}
+</h2>
           </div>
           <div className="space-y-1.5 mt-4">
             <div className="w-full bg-brand-border h-2 rounded-full overflow-hidden">
@@ -216,10 +218,10 @@ export default function FinancialReports({
                 style={{ width: `${collectionRate}%` }}
               />
             </div>
-            <div className="flex justify-between text-[10px] font-mono text-gray-500">
-              <span>Paid: ₹{totalRevenue.toLocaleString()}</span>
-              <span>Total: ₹{totalInvoiced.toLocaleString()}</span>
-            </div>
+<div className="flex justify-between text-[10px] font-mono text-gray-500">
+  <span>{isAdmin ? `Paid: ₹${totalRevenue.toLocaleString()}` : 'Paid: •••'}</span>
+  <span>{isAdmin ? `Total: ₹${totalInvoiced.toLocaleString()}` : 'Total: •••'}</span>
+</div>
           </div>
         </div>
 
@@ -300,7 +302,7 @@ export default function FinancialReports({
               </div>
               <div className="text-right">
                 <p className="font-mono text-base font-bold text-white">
-                  ₹{monthlySubRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {isAdmin ? `₹${monthlySubRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
                 </p>
                 <p className="font-sans text-[10px] text-brand-emerald">Dynamic Billing Active</p>
               </div>
@@ -319,9 +321,9 @@ export default function FinancialReports({
               </div>
               <div className="text-right">
                 <p className="font-mono text-base font-bold text-white">
-                  ₹{registrationFeeRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {isAdmin ? `₹${registrationFeeRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
                 </p>
-                <p className="font-sans text-[10px] text-gray-400">₹150.00 flat rate per member</p>
+                <p className="font-sans text-[10px] text-gray-400">{isAdmin ? '₹150.00 flat rate per member' : 'Flat rate per member'}</p>
               </div>
             </div>
 
@@ -332,7 +334,7 @@ export default function FinancialReports({
                 <span className="font-sans text-xs font-bold text-gray-300 uppercase tracking-wider">Aggregate Gross Revenue</span>
               </div>
               <p className="font-mono text-lg font-extrabold text-brand-gold">
-                ₹{adjustedTotalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {isAdmin ? `₹${adjustedTotalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '••••••'}
               </p>
             </div>
 
@@ -382,13 +384,15 @@ export default function FinancialReports({
             </button>
 
             {/* Export CSV Button */}
-            <button
-              onClick={handleExportCSV}
-              className="bg-brand-gold hover:bg-brand-gold-bright text-black px-3 py-1.5 rounded-xs font-sans text-[11px] font-bold flex items-center gap-1.5 transition-all duration-150 active:scale-95 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export CSV
-            </button>
+            {isAdmin && (
+              <button
+                onClick={handleExportCSV}
+                className="bg-brand-gold hover:bg-brand-gold-bright text-black px-3 py-1.5 rounded-xs font-sans text-[11px] font-bold flex items-center gap-1.5 transition-all duration-150 active:scale-95 cursor-pointer"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Export CSV
+              </button>
+            )}
           </div>
         </div>
 
@@ -535,9 +539,9 @@ export default function FinancialReports({
                     <td className="p-4 font-sans text-gray-300">
                       {inv.courseName}
                     </td>
-                    <td className="p-4 font-mono text-white font-bold">
-                      ₹{inv.amount.toFixed(2)}
-                    </td>
+<td className="p-4 font-mono text-white font-bold">
+  {isAdmin ? `₹${inv.amount.toFixed(2)}` : '•••'}
+</td>
                     <td className="p-4 text-right">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-mono uppercase font-bold tracking-wider ${
                         inv.status === 'Success' 

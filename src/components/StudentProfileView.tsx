@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, Info, Link as LinkIcon, ShieldCheck, 
   PauseCircle, PlayCircle, XCircle, Filter, CheckCircle, FileText,
-  Edit, X, GraduationCap, BarChart3, CreditCard
+  Edit, X, GraduationCap, BarChart3, CreditCard, KeyRound
 } from 'lucide-react';
 import { Subscription, Invoice, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
 import PlayerProfileStats from './player/PlayerProfileStats';
+import ProfilePicUpload from './ProfilePicUpload';
+import AttendanceSummary from './AttendanceSummary';
 
 interface StudentProfileViewProps {
   subscription: Subscription;
@@ -17,6 +19,7 @@ interface StudentProfileViewProps {
   onSelectInvoice: (invoice: Invoice) => void;
   courses?: FilmCourse[];
   batches?: string[];
+  isAdmin?: boolean;
   onUpdateSubscription?: (sub: Subscription) => void;
 }
 
@@ -28,6 +31,7 @@ export default function StudentProfileView({
   onSelectInvoice,
   courses = [],
   batches = [],
+  isAdmin = true,
   onUpdateSubscription
 }: StudentProfileViewProps) {
   const [profileTab, setProfileTab] = useState<'stats' | 'billing'>('stats');
@@ -202,6 +206,17 @@ export default function StudentProfileView({
           <div className="min-w-0">
             <h2 className="font-sans text-xl font-bold text-white truncate">{subscription.studentName}</h2>
             <p className="font-mono text-[10px] text-gray-500 truncate">{subscription.id} · {subscription.batch}</p>
+            {subscription.status === 'Active' && subscription.parentLoginId && (
+              <p
+                className="inline-flex items-center gap-1 font-mono text-[11px] text-brand-gold/90 cursor-pointer hover:text-brand-gold transition-colors select-all mt-1"
+                title="Parent Login ID — share this with the parent so they can log in"
+                onClick={() => navigator.clipboard?.writeText(subscription.parentLoginId!)}
+              >
+                <KeyRound className="h-3 w-3" />
+                {subscription.parentLoginId}
+                <span className="text-gray-500 font-sans text-[9px] normal-case">(tap to copy)</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -283,7 +298,51 @@ export default function StudentProfileView({
       </div>
 
       {profileTab === 'stats' ? (
-        <PlayerProfileStats subscription={subscription} />
+        <div className="space-y-6">
+          {/* Billing status + attendance summary at the top of the player profile */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <section className="lg:col-span-5 bg-brand-surface-card border border-brand-border rounded-xs p-5 space-y-3">
+              <h4 className="flex items-center gap-2 font-sans text-sm font-bold text-white uppercase tracking-wider">
+                <CreditCard className="h-4 w-4 text-brand-gold" />
+                Billing Status
+              </h4>
+              {displayInvoices.length === 0 ? (
+                <p className="font-sans text-xs text-gray-400">No invoices recorded for this athlete yet.</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-brand-charcoal border border-brand-border/40 rounded-xs p-3">
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-gray-500">Paid</p>
+                    <p className="font-mono text-2xl font-extrabold text-brand-emerald">
+                      {displayInvoices.filter(i => i.status === 'Success').length}
+                    </p>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-gray-600">invoices</p>
+                  </div>
+                  <div className="bg-brand-charcoal border border-brand-border/40 rounded-xs p-3">
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-gray-500">Due</p>
+                    <p className="font-mono text-2xl font-extrabold text-brand-cinnabar">
+                      {displayInvoices.filter(i => i.status !== 'Success').length}
+                    </p>
+                    <p className="font-mono text-[9px] uppercase tracking-wider text-gray-600">outstanding</p>
+                  </div>
+                  {displayInvoices.filter(i => i.status !== 'Success').reduce((s, i) => s + i.amount, 0) > 0 && isAdmin && (
+                    <div className="col-span-2 bg-brand-cinnabar/5 border border-brand-cinnabar/20 rounded-xs p-3 flex items-center justify-between">
+                      <span className="font-sans text-xs text-gray-300">Total due</span>
+                      <span className="font-mono text-base font-bold text-brand-cinnabar">
+                        ₹{displayInvoices.filter(i => i.status !== 'Success').reduce((s, i) => s + i.amount, 0).toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
+
+            <div className="lg:col-span-7">
+              <AttendanceSummary subscription={subscription} months={3} />
+            </div>
+          </div>
+
+          <PlayerProfileStats subscription={subscription} />
+        </div>
       ) : (
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
@@ -296,12 +355,12 @@ export default function StudentProfileView({
             <h3 className="font-sans text-xs font-semibold text-gray-400 mb-4 uppercase tracking-wider">
               Monthly Rate
             </h3>
-            <div className="flex items-baseline gap-1">
-              <span className="font-sans text-3xl font-bold text-brand-gold">₹</span>
-              <span className="font-mono text-5xl font-extrabold text-white tracking-tight">
-                {subscription.monthlyFee.toFixed(2)}
-              </span>
-            </div>
+<div className="flex items-baseline gap-1">
+  <span className="font-sans text-3xl font-bold text-brand-gold">{isAdmin ? '₹' : ''}</span>
+  <span className="font-mono text-5xl font-extrabold text-white tracking-tight">
+    {isAdmin ? subscription.monthlyFee.toFixed(2) : '•••'}
+  </span>
+</div>
             <p className="font-sans text-xs text-gray-400 mt-4">
               Next automatic draft scheduled for <span className="font-mono text-white">{formatDisplayDate(subscription.nextBillingDate)}</span>
             </p>
@@ -418,9 +477,9 @@ export default function StudentProfileView({
                       <td className="px-5 py-4 font-mono text-gray-300">
                         {formatDisplayDate(inv.date)}
                       </td>
-                      <td className="px-5 py-4 font-mono font-bold text-white">
-                        ₹{inv.amount.toFixed(2)}
-                      </td>
+<td className="px-5 py-4 font-mono font-bold text-white">
+  {isAdmin ? `₹${inv.amount.toFixed(2)}` : '•••'}
+</td>
                       <td className="px-5 py-4">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${
                           inv.status === 'Success'
@@ -507,15 +566,9 @@ export default function StudentProfileView({
                   </div>
 
                   <div>
-                    <label className="block font-mono text-[9px] uppercase tracking-wider text-gray-400 mb-1.5">
-                      Profile Picture URL
-                    </label>
-                    <input 
-                      type="url"
+                    <ProfilePicUpload
                       value={formData.profilePic}
-                      onChange={(e) => setFormData({ ...formData, profilePic: e.target.value })}
-                      className="w-full bg-brand-charcoal border border-brand-border rounded-xs px-3.5 py-2.5 text-xs text-white focus:border-brand-gold outline-none transition-colors font-mono"
-                      placeholder="https://images.unsplash.com/photo-..."
+                      onChange={(dataUrl) => setFormData({ ...formData, profilePic: dataUrl })}
                     />
                   </div>
                 </div>

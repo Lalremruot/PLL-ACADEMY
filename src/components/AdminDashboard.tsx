@@ -12,6 +12,8 @@ interface AdminDashboardProps {
   subscriptions: Subscription[];
   courses: FilmCourse[];
   isMobileMode: boolean;
+  /** False for managers, whose ledger access is limited to paid/due status only. */
+  isAdmin: boolean;
   onAddInvoice: (newInvoice: Omit<Invoice, 'id'>) => void;
   onDeleteInvoice: (id: string) => void;
   onUpdateSubscriptionStatus: (subId: string, newStatus: 'Active' | 'Paused' | 'Canceled') => void;
@@ -24,6 +26,7 @@ export default function AdminDashboard({
   subscriptions,
   courses,
   isMobileMode,
+  isAdmin,
   onAddInvoice,
   onDeleteInvoice,
   onUpdateSubscriptionStatus,
@@ -140,7 +143,9 @@ export default function AdminDashboard({
           </div>
           <span className="font-sans text-xs text-gray-400 font-medium tracking-wide uppercase">Academy Revenue</span>
           <h3 className="font-mono text-2xl font-bold text-white mt-1">
-            ₹{totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {isAdmin
+              ? `₹${totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : '••••••'}
           </h3>
           <p className="font-sans text-xs text-brand-gold mt-2 flex items-center gap-1">
             <ArrowUpRight className="h-3.5 w-3.5" />
@@ -155,7 +160,7 @@ export default function AdminDashboard({
           </div>
           <span className="font-sans text-xs text-gray-400 font-medium tracking-wide uppercase">Collection Rate</span>
           <h3 className="font-mono text-2xl font-bold text-white mt-1">
-            {collectionRate.toFixed(1)}%
+            {isAdmin ? `${collectionRate.toFixed(1)}%` : '••••••'}
           </h3>
           <div className="w-full bg-brand-charcoal h-1.5 rounded-full mt-3 overflow-hidden">
             <div 
@@ -213,14 +218,16 @@ export default function AdminDashboard({
               </p>
             </div>
 
-            <button
-              id="admin-new-invoice-btn"
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="flex items-center gap-2 rounded-xs bg-brand-blue hover:bg-brand-blue-bright px-4 py-2 font-sans text-xs font-semibold text-black transition-all cursor-pointer shadow-md"
-            >
-              <Plus className="h-4 w-4 shrink-0" />
-              Register Invoice
-            </button>
+            {isAdmin && (
+              <button
+                id="admin-new-invoice-btn"
+                onClick={() => setShowAddForm(!showAddForm)}
+                className="flex items-center gap-2 rounded-xs bg-brand-blue hover:bg-brand-blue-bright px-4 py-2 font-sans text-xs font-semibold text-black transition-all cursor-pointer shadow-md"
+              >
+                <Plus className="h-4 w-4 shrink-0" />
+                Register Invoice
+              </button>
+            )}
           </div>
 
           {/* New Invoice Form (AnimatePresence) */}
@@ -411,20 +418,24 @@ export default function AdminDashboard({
                       {invoice.id}
                     </span>
                     {/* Amount & Status are extremely prominent */}
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-bold text-white">
-                        ₹{invoice.amount}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase ${
-                        invoice.status === 'Success' 
-                          ? 'bg-brand-emerald text-white' 
-                          : invoice.status === 'Failed' 
-                            ? 'bg-brand-cinnabar text-white' 
-                            : 'bg-brand-amethyst text-white'
-                      }`}>
-                        {invoice.status}
-                      </span>
-                    </div>
+<div className="flex items-center gap-2">
+  {isAdmin ? (
+    <span className="font-mono text-sm font-bold text-white">
+      ₹{invoice.amount}
+    </span>
+  ) : (
+    <span className="font-mono text-sm font-bold text-gray-400">•••</span>
+  )}
+  <span className={`px-2.5 py-0.5 rounded-full font-mono text-[9px] font-bold uppercase ${
+    invoice.status === 'Success' 
+      ? 'bg-brand-emerald text-white' 
+      : invoice.status === 'Failed' 
+        ? 'bg-brand-cinnabar text-white' 
+        : 'bg-brand-amethyst text-white'
+  }`}>
+    {invoice.status}
+  </span>
+</div>
                   </div>
 
                   <div className="space-y-1">
@@ -457,16 +468,18 @@ export default function AdminDashboard({
 
                   <div className="mt-3 pt-2 border-t border-brand-border/40 flex justify-between items-center text-[10px] text-gray-500 font-mono">
                     <span>Due: {formatDisplayDate(invoice.dueDate)}</span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setInvoicePendingDelete(invoice);
-                      }}
-                      className="text-gray-500 hover:text-brand-cinnabar transition-colors"
-                      title="Delete invoice record"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setInvoicePendingDelete(invoice);
+                        }}
+                        className="text-gray-500 hover:text-brand-cinnabar transition-colors"
+                        title="Delete invoice record"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -530,9 +543,9 @@ export default function AdminDashboard({
                           {invoice.semester}
                         </span>
                       </td>
-                      <td className="py-4 px-4 font-mono font-bold text-white">
-                        ₹{invoice.amount}
-                      </td>
+<td className="py-4 px-4 font-mono font-bold text-white">
+  {isAdmin ? `₹${invoice.amount}` : '•••'}
+</td>
                       <td className="py-4 px-4 font-mono text-gray-400">
                         {formatDisplayDate(invoice.dueDate)}
                       </td>
@@ -555,14 +568,16 @@ export default function AdminDashboard({
                           >
                             View Receipt
                           </button>
-                          <span className="text-brand-border">|</span>
-                          <button
-                            onClick={() => setInvoicePendingDelete(invoice)}
-                            className="text-gray-500 hover:text-brand-cinnabar transition-colors"
-                            title="Delete invoice record"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          {isAdmin && <>
+                            <span className="text-brand-border">|</span>
+                            <button
+                              onClick={() => setInvoicePendingDelete(invoice)}
+                              className="text-gray-500 hover:text-brand-cinnabar transition-colors"
+                              title="Delete invoice record"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>}
                         </div>
                       </td>
                     </tr>
@@ -609,7 +624,7 @@ export default function AdminDashboard({
                         <p className="font-sans text-xs text-gray-400 truncate max-w-[170px]" title={sub.courseName}>
                           {sub.courseName}
                         </p>
-                        {sub.parentLoginId && (
+                        {sub.status === 'Active' && sub.parentLoginId && (
                           <p
                             className="font-mono text-[10px] text-brand-gold/90 cursor-pointer hover:text-brand-gold transition-colors select-all flex items-center gap-1 mt-0.5"
                             title="Parent Login ID — share this with the parent so they can log in"
@@ -632,10 +647,10 @@ export default function AdminDashboard({
                       </span>
                     </div>
 
-                    <div className="flex items-center justify-between mt-1 text-xs">
-                      <span className="font-mono text-gray-400">
-                        ₹{sub.monthlyFee}/mo
-                      </span>
+<div className="flex items-center justify-between mt-1 text-xs">
+  <span className="font-mono text-gray-400">
+    {isAdmin ? `₹${sub.monthlyFee}/mo` : 'Fee & status'}
+  </span>
 
                       {/* Custom Switch Toggle which glows gold when active */}
                       <div className="flex items-center gap-2">

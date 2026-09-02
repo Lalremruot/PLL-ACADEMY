@@ -1,8 +1,9 @@
 import React, { useRef } from 'react';
 import { motion } from 'motion/react';
-import { X, Printer, CheckCircle, AlertTriangle, Clock, Trophy, Award, IndianRupee } from 'lucide-react';
+import { X, Printer, Download, CheckCircle, AlertTriangle, Clock, Trophy, Award, IndianRupee } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { downloadReceiptPdf } from '../utils/receipt-pdf';
 
 interface InvoiceReceiptModalProps {
   invoice: Invoice;
@@ -220,6 +221,15 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
           >
             <Printer className="h-3.5 w-3.5 text-brand-gold" />
             Print Ledger Copy
+          </button>
+
+          <button
+            id={`download-invoice-btn-${invoice.id}`}
+            onClick={() => downloadReceiptPdf(invoice)}
+            className="flex items-center gap-2 rounded-xs border border-brand-border hover:border-brand-emerald bg-transparent px-4 py-2 font-sans text-xs font-medium text-white transition-all cursor-pointer"
+          >
+            <Download className="h-3.5 w-3.5 text-brand-emerald" />
+            Download PDF
           </button>
 
           <div className="flex gap-2">

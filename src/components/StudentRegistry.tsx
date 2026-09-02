@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Subscription, Invoice, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import ProfilePicUpload from './ProfilePicUpload';
 
 interface StudentRegistryProps {
   subscriptions: Subscription[];
@@ -1368,19 +1369,11 @@ export default function StudentRegistry({
                     />
                   </div>
 
-                  {/* Profile Pic URL */}
-                  <div>
-                    <label className="block font-mono text-[9px] uppercase tracking-wider text-gray-400 mb-1.5">
-                      Profile Picture Image URL
-                    </label>
-                    <input 
-                      type="url"
-                      value={formData.profilePic}
-                      onChange={(e) => setFormData({ ...formData, profilePic: e.target.value })}
-                      className="w-full bg-brand-charcoal border border-brand-border rounded-xs px-3.5 py-2.5 text-xs text-white focus:border-brand-gold outline-none transition-colors font-mono"
-                      placeholder="https://images.unsplash.com/photo-..."
-                    />
-                  </div>
+                  {/* Profile Pic */}
+                  <ProfilePicUpload
+                    value={formData.profilePic}
+                    onChange={(dataUrl) => setFormData({ ...formData, profilePic: dataUrl })}
+                  />
                 </div>
 
                 {/* Actions Form */}

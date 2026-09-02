@@ -500,6 +500,7 @@ export default function App() {
               onSelectInvoice={setSelectedInvoice}
               courses={courses}
               batches={batches}
+              isAdmin={isAdmin}
               onUpdateSubscription={handleUpdateSubscription}
             />
           )}
@@ -576,6 +577,7 @@ export default function App() {
                   subscriptions={subscriptions}
                   courses={courses}
                   isMobileMode={isMobileMode}
+                  isAdmin={isAdmin}
                   onAddInvoice={handleAddInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onSelectInvoice={setSelectedInvoice}
@@ -630,6 +632,7 @@ export default function App() {
                   invoices={invoices}
                   subscriptions={subscriptions}
                   batches={batches}
+                  isAdmin={isAdmin}
                   onSelectInvoice={setSelectedInvoice}
                 />
               )}
