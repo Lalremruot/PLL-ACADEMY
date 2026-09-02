@@ -323,16 +323,17 @@ export async function createRazorpaySubscriptionOrder(input: {
     currency: 'INR',
     receipt: `SUB-${input.subscriptionId}`,
     // UPI Autopay: a standing instruction the parent approves once in their UPI
-    // app, after which Razorpay auto-debits the UPI handle each month.
+    // app, after which Razorpay auto-debits the UPI handle each month. The
+    // token carries only the debit cap + expiry + frequency — Razorpay rejects
+    // extra fields like `auth_type`/`notes` on a UPI autopay order.
     method: 'upi',
     customer_id: customerId,
     payment_capture: 1,
     notes: { subscriptionId: input.subscriptionId, type: 'subscription' },
     token: {
-      auth_type: 'upi',
       max_amount: resolveMandateMaxAmount(amount),
       expire_at: expireAt,
-      notes: { subscriptionId: input.subscriptionId },
+      frequency: 'monthly',
     },
   };
 
