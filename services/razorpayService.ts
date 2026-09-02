@@ -227,6 +227,28 @@ function resolveMandateMaxAmount(amountPaise: number): number {
 }
 
 /**
+ * Razorpay rejects a customer `name` with "The name format is invalid." when it
+ * contains a character outside the allowed set (letters, numbers, `'`, `-`,
+ * `.`, `_`, `(`, `)` and `@`), when it is shorter than 3 or longer than 50
+ * characters, or when it does not start/end with a letter, number, `.` or `)`.
+ * A parent name is free-form user input, so at the gateway boundary we coerce
+ * it to a valid shape without changing what is shown in the app.
+ */
+function sanitizeRazorpayName(name?: string): string {
+  const raw = (name ?? '').trim();
+  // Keep allowed characters only, collapse runs of spaces.
+  const cleaned = raw
+    .replace(/[^A-Za-z0-9'._\-()@\/\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[^A-Za-z0-9.)]+|[^A-Za-z0-9.)]+$/g, '')
+    .trim();
+
+  if (cleaned.length >= 3 && cleaned.length <= 50) return cleaned;
+  // Too short / too long / emptied by stripping — a guaranteed-valid fallback.
+  return 'Academy Parent';
+}
+
+/**
  * Returns the Razorpay customer id for a parent, creating the customer when it
  * does not exist yet. Idempotent: a parent with the same email is looked up
  * first and reused — but if that existing customer has no `contact`, the
@@ -240,6 +262,10 @@ export async function ensureRazorpayCustomer(input: {
 }): Promise<string> {
   const creds = await getRazorpayCredentials();
   const client = getRazorpayClient(creds);
+
+  // Razorpay requires a valid customer name; coerce any user-entered value to
+  // a safe form so a special character can't fail the whole e-mandate setup.
+  const name = sanitizeRazorpayName(input.name);
 
   if (input.email) {
     // customers.all accepts an `email` filter at runtime even though the SDK
@@ -261,7 +287,7 @@ export async function ensureRazorpayCustomer(input: {
   }
 
   const customer = await client.customers.create({
-    name: input.name || 'Academy Parent',
+    name,
     email: input.email || undefined,
     contact: input.contact || undefined,
     fail_existing: 0,
