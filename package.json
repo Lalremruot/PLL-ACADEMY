@@ -8,7 +8,8 @@
     "build": "next build",
     "start": "node start.js",
     "clean": "rm -rf .next dist",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "reset:admin": "tsx scripts/reset-admin-password.ts"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

@@ -13,6 +13,30 @@ export interface StaffAccount {
   email: string;
   role: 'admin' | 'manager';
   name?: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
+}
+
+export async function apiUpdateStaffProfile(input: {
+  email: string;
+  name?: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
+}): Promise<StaffAccount> {
+  const res = await fetch('/api/auth/users/profile', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update staff profile');
+  }
+  return data.data;
 }
 
 export async function apiLogin(

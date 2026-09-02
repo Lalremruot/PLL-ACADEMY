@@ -21,12 +21,19 @@ import {
   apiProcessDueAutoDebits,
   apiFetchAutoDebitTestState,
   apiRunAutoDebitTestAction,
+  apiUpdateStaffProfile,
   type AutoDebitTestState,
 } from '../services/apiClient';
+import ProfilePicUpload from './ProfilePicUpload';
 
 interface UserAccount {
   email: string;
   role: 'admin' | 'manager';
+  name?: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
 }
 
 interface SettingsProps {
@@ -43,6 +50,7 @@ interface SettingsProps {
   canManageBatches?: boolean;
   isMobileMode?: boolean;
   currentUserEmail?: string;
+  isAdmin?: boolean;
   /** Lets the auto-debit test harness pull fresh ledger data after a simulated charge. */
   onRefreshData?: () => void;
 }
@@ -71,10 +79,14 @@ export default function Settings({
   canManageBatches = true,
   isMobileMode = false,
   currentUserEmail = '',
+  isAdmin = true,
   onRefreshData,
 }: SettingsProps) {
-  // Sub-tabs in Settings: 'operational' or 'account'
-  const [settingsTab, setSettingsTab] = useState<'operational' | 'account'>('operational');
+  // Sub-tabs in Settings: 'operational' or 'account'. Managers only ever see
+  // the account tab (profile + password); operational controls are admin-only.
+  const [settingsTab, setSettingsTab] = useState<'operational' | 'account'>(() =>
+    isAdmin ? 'operational' : 'account'
+  );
 
   // --- Operational Settings States ---
   const [razorpayKeyId, setRazorpayKeyId] = useState('');
@@ -218,6 +230,19 @@ export default function Settings({
   const [showChangePass, setShowChangePass] = useState(false);
   const [changePassError, setChangePassError] = useState('');
   const [changePassSuccess, setChangePassSuccess] = useState('');
+
+  // Staff Profile Edit State
+  const [profileTarget, setProfileTarget] = useState('');
+  const [profileName, setProfileName] = useState('');
+  const [profileDesignation, setProfileDesignation] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileAddress, setProfileAddress] = useState('');
+  const [profilePic, setProfilePic] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const allStaffAccounts = [...adminUsers, ...managerUsers];
 
   // Load Admin / Manager Accounts from the server
   useEffect(() => {
@@ -581,6 +606,57 @@ export default function Settings({
     }
   };
 
+  // Populate the profile editor from a chosen staff account (defaults to the
+  // current user once accounts load).
+  const applyProfileAccount = (account?: UserAccount) => {
+    setProfileTarget(account?.email ?? '');
+    setProfileName(account?.name ?? '');
+    setProfileDesignation(account?.designation ?? '');
+    setProfilePhone(account?.phone ?? '');
+    setProfileAddress(account?.address ?? '');
+    setProfilePic(account?.profilePic ?? '');
+    setProfileError('');
+    setProfileSuccess('');
+  };
+
+  useEffect(() => {
+    if (!currentUserEmail || allStaffAccounts.length === 0) return;
+    const current = allStaffAccounts.find((a) => a.email.toLowerCase() === currentUserEmail.toLowerCase());
+    if (current && !profileTarget) {
+      applyProfileAccount(current);
+    }
+  }, [allStaffAccounts, currentUserEmail, profileTarget]);
+
+  const handleSaveProfile = async (e: React.FormEvent): Promise<void> => {
+    e.preventDefault();
+    setProfileError('');
+    setProfileSuccess('');
+    if (!profileTarget) {
+      setProfileError('Select an account to update.');
+      return;
+    }
+    setIsSavingProfile(true);
+    try {
+      await apiUpdateStaffProfile({
+        email: profileTarget,
+        name: profileName.trim(),
+        designation: profileDesignation.trim(),
+        phone: profilePhone.trim(),
+        address: profileAddress.trim(),
+        profilePic: profilePic || undefined,
+      });
+      const accounts = await apiFetchStaffAccounts();
+      setAdminUsers(accounts.filter((a) => a.role === 'admin'));
+      setManagerUsers(accounts.filter((a) => a.role === 'manager'));
+      setProfileSuccess(`Profile updated for ${profileTarget}.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update profile';
+      setProfileError(message);
+    } finally {
+      setIsSavingProfile(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in duration-500">
       
@@ -598,6 +674,7 @@ export default function Settings({
 
         {/* Settings View Sub-Tab Selector */}
         <div className="flex bg-brand-charcoal border border-brand-border p-1 rounded-xs gap-1 self-start sm:self-auto">
+          {isAdmin && (
           <button
             onClick={() => setSettingsTab('operational')}
             className={`px-4 py-2 font-sans text-xs font-bold rounded-xs transition-all cursor-pointer ${
@@ -608,6 +685,7 @@ export default function Settings({
           >
             Operational Settings
           </button>
+          )}
           <button
             onClick={() => setSettingsTab('account')}
             className={`px-4 py-2 font-sans text-xs font-bold rounded-xs transition-all cursor-pointer ${
@@ -622,7 +700,7 @@ export default function Settings({
       </div>
 
       <AnimatePresence mode="wait">
-        {settingsTab === 'operational' ? (
+        {settingsTab === 'operational' && isAdmin ? (
           <motion.div
             key="operational-tab"
             initial={{ opacity: 0, y: 5 }}
@@ -1407,7 +1485,114 @@ export default function Settings({
             transition={{ duration: 0.15 }}
             className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
           >
-            {/* Create New Admin */}
+            {/* Staff Profile */}
+            <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">
+              <h3 className="font-sans text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
+                <Users className="h-4.5 w-4.5 text-brand-gold" />
+                Staff Profile
+              </h3>
+              <p className="text-xs text-gray-400">
+                {isAdmin
+                  ? 'Update profile details for any administrator or manager account in the academy.'
+                  : 'Update your own profile details shown to other staff members.'}
+              </p>
+
+              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs font-sans pt-2">
+                {isAdmin && (
+                  <div>
+                    <label className="block text-gray-400 mb-1">Account</label>
+                    <select
+                      value={profileTarget}
+                      onChange={(e) =>
+                        applyProfileAccount(allStaffAccounts.find((a) => a.email === e.target.value))
+                      }
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                    >
+                      <option value="">Select an account…</option>
+                      {allStaffAccounts.map((a) => (
+                        <option key={a.email} value={a.email}>
+                          {a.name || a.email} ({a.role})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Display Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Coach Rajesh Kumar"
+                    value={profileName}
+                    onChange={(e) => setProfileName(e.target.value)}
+                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Designation</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Head Coach, Academy Manager"
+                    value={profileDesignation}
+                    onChange={(e) => setProfileDesignation(e.target.value)}
+                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    placeholder="e.g. +91 98765 43210"
+                    value={profilePhone}
+                    onChange={(e) => setProfilePhone(e.target.value)}
+                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Address</label>
+                  <textarea
+                    placeholder="Mailing or residential address"
+                    value={profileAddress}
+                    onChange={(e) => setProfileAddress(e.target.value)}
+                    rows={2}
+                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-gray-400 mb-1">Profile Picture</label>
+                  <ProfilePicUpload value={profilePic} onChange={setProfilePic} />
+                </div>
+
+                {profileError && (
+                  <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
+                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                    <span>{profileError}</span>
+                  </div>
+                )}
+                {profileSuccess && (
+                  <div className="flex items-center gap-1.5 text-brand-emerald font-mono text-[10px]">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                    <span>{profileSuccess}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSavingProfile}
+                  className="w-full bg-brand-gold hover:bg-brand-gold-bright disabled:opacity-50 text-black font-bold py-2.5 rounded-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="h-4 w-4" />
+                  {isSavingProfile ? 'Saving…' : 'Save Profile'}
+                </button>
+              </form>
+            </div>
+
+            {isAdmin && (
+            <>
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">
               <h3 className="font-sans text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
                 <UserPlus className="h-4.5 w-4.5 text-brand-gold" />
@@ -1472,7 +1657,6 @@ export default function Settings({
                 </button>
               </form>
 
-              {/* Quick display of other administrators in database */}
               <div className="pt-4 border-t border-brand-border/40 space-y-2">
                 <span className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">Registered Administrators ({adminUsers.length})</span>
                 <div className="space-y-1.5 max-h-[140px] overflow-y-auto custom-scrollbar">
@@ -1486,7 +1670,6 @@ export default function Settings({
               </div>
             </div>
 
-            {/* Create New Manager */}
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">
               <h3 className="font-sans text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
                 <Users className="h-4.5 w-4.5 text-brand-gold" />
@@ -1562,6 +1745,8 @@ export default function Settings({
                 </div>
               </div>
             </div>
+            </>
+            )}
 
             {/* Change Account Password */}
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">

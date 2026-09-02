@@ -180,7 +180,7 @@ export default function App() {
   const canManagerCheckIn =
     isManager && hasPermission(managerPermissions, 'canCheckInManagerAttendance');
   const canViewManagerLog = isAdmin;
-  const canOpenSettings = isAdmin;
+  const canOpenSettings = isAdmin || isManager;
 
   useEffect(() => {
     if (!loggedInUser || loggedInUser.role === 'parent') {
@@ -651,6 +651,7 @@ export default function App() {
                   onSaveAcademySettings={handleSaveAcademySettings}
                   canManageBatches={canManageBatches}
                   currentUserEmail={loggedInUser?.email}
+                  isAdmin={isAdmin}
                   onRefreshData={loadAllData}
                 />
               )}

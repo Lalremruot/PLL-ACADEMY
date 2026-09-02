@@ -208,7 +208,67 @@ export async function listStaffAccounts() {
     email: doc.email,
     role: doc.role as 'admin' | 'manager',
     name: doc.name,
+    designation: doc.designation,
+    phone: doc.phone,
+    address: doc.address,
+    profilePic: doc.profilePic,
   }));
+}
+
+/**
+ * Updates the profile fields (designation, phone, address, profilePic) for an
+ * admin/manager account. The account being edited may be any staff member
+ * (an admin can edit any account, including their own manager is edited by an
+ * admin/manager). Callers are expected to have authenticated and, when editing
+ * someone other than themselves, have admin privileges. Returns the sanitized
+ * account without the password hash.
+ */
+export async function updateStaffProfile(input: {
+  email: string;
+  name?: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
+}) {
+  const db = await connectToDatabase();
+  const email = input.email.toLowerCase().trim();
+  if (db) {
+    const user = await UserModel.findOneAndUpdate(
+      { email },
+      {
+        $set: {
+          name: input.name,
+          designation: input.designation,
+          phone: input.phone,
+          address: input.address,
+          profilePic: input.profilePic,
+        },
+      },
+      { new: true }
+    );
+    if (!user) {
+      throw new Error('Account not found.');
+    }
+    return {
+      email: user.email,
+      role: user.role as 'admin' | 'manager',
+      name: user.name,
+      designation: user.designation,
+      phone: user.phone,
+      address: user.address,
+      profilePic: user.profilePic,
+    };
+  }
+  return {
+    email,
+    role: 'admin' as const,
+    name: input.name,
+    designation: input.designation,
+    phone: input.phone,
+    address: input.address,
+    profilePic: input.profilePic,
+  };
 }
 
 /**
