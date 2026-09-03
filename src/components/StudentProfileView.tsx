@@ -20,6 +20,7 @@ interface StudentProfileViewProps {
   courses?: FilmCourse[];
   batches?: string[];
   isAdmin?: boolean;
+  isManager?: boolean;
   onUpdateSubscription?: (sub: Subscription) => void;
 }
 
@@ -32,6 +33,7 @@ export default function StudentProfileView({
   courses = [],
   batches = [],
   isAdmin = true,
+  isManager = false,
   onUpdateSubscription
 }: StudentProfileViewProps) {
   const [profileTab, setProfileTab] = useState<'stats' | 'billing'>('stats');
@@ -427,7 +429,9 @@ export default function StudentProfileView({
                     <th className="px-5 py-3 font-semibold">Date</th>
                     <th className="px-5 py-3 font-semibold">Amount</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 text-right font-semibold">Statement</th>
+                    {!isManager && (
+                      <th className="px-5 py-3 text-right font-semibold">Statement</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border">
@@ -437,26 +441,38 @@ export default function StudentProfileView({
                         {formatDisplayDate(inv.date)}
                       </td>
 <td className="px-5 py-4 font-mono font-bold text-white">
-  {isAdmin ? `₹${inv.amount.toFixed(2)}` : '•••'}
+  {isManager ? '—' : isAdmin ? `₹${inv.amount.toFixed(2)}` : '•••'}
 </td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${
-                          inv.status === 'Success'
-                            ? 'bg-brand-emerald text-white'
-                            : 'bg-brand-cinnabar text-white'
-                        }`}>
-                          {inv.status}
-                        </span>
+                        {isManager ? (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${
+                            inv.status === 'Success'
+                              ? 'bg-brand-emerald text-white'
+                              : 'bg-brand-cinnabar text-white'
+                          }`}>
+                            {inv.status === 'Success' ? 'Paid' : 'Due'}
+                          </span>
+                        ) : (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${
+                            inv.status === 'Success'
+                              ? 'bg-brand-emerald text-white'
+                              : 'bg-brand-cinnabar text-white'
+                          }`}>
+                            {inv.status}
+                          </span>
+                        )}
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <button
-                          onClick={() => onSelectInvoice(inv as Invoice)}
-                          className="text-brand-gold hover:text-brand-gold-bright transition-colors inline-flex items-center gap-1 cursor-pointer font-sans text-xs"
-                        >
-                          <FileText className="h-4 w-4" />
-                          <span>View Statement</span>
-                        </button>
-                      </td>
+                      {!isManager && (
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            onClick={() => onSelectInvoice(inv as Invoice)}
+                            className="text-brand-gold hover:text-brand-gold-bright transition-colors inline-flex items-center gap-1 cursor-pointer font-sans text-xs"
+                          >
+                            <FileText className="h-4 w-4" />
+                            <span>View Statement</span>
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

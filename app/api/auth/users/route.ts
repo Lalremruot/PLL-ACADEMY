@@ -46,6 +46,7 @@ export async function POST(req: NextRequest) {
       phone: typeof body.phone === 'string' ? body.phone : undefined,
       address: typeof body.address === 'string' ? body.address : undefined,
       profilePic: typeof body.profilePic === 'string' ? body.profilePic : undefined,
+      assignedBatch: role === 'manager' && typeof body.assignedBatch === 'string' ? body.assignedBatch : undefined,
     });
     return successResponse(account, 'Account created successfully', 201);
   } catch (err: unknown) {

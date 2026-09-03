@@ -7,6 +7,7 @@ export interface SessionUser {
   subscriptionId?: string;
   studentName?: string;
   parentLoginId?: string;
+  assignedBatch?: string;
 }
 
 export interface StaffAccount {
@@ -17,6 +18,7 @@ export interface StaffAccount {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }
 
 export async function apiUpdateStaffProfile(input: {
@@ -26,6 +28,7 @@ export async function apiUpdateStaffProfile(input: {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }): Promise<StaffAccount> {
   const res = await fetch('/api/auth/users/profile', {
     method: 'PUT',
@@ -100,6 +103,7 @@ export async function apiCreateUserAccount(input: {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }): Promise<StaffAccount> {
   const res = await fetch('/api/auth/users', {
     method: 'POST',

@@ -15,11 +15,17 @@ export async function GET(req: NextRequest) {
   try {
     const subscriptions = await getAllSubscriptions();
     // Parents only ever see their own child's subscription(s) — never the
-    // full registry. Admin and managers get everything.
-    const scoped =
-      auth.user.role === 'parent'
-        ? subscriptions.filter((s) => s.parentEmail.toLowerCase() === auth.user.email.toLowerCase())
-        : subscriptions;
+    // full registry. Managers only see students in their assigned batch.
+    let scoped: typeof subscriptions;
+    if (auth.user.role === 'parent') {
+      scoped = subscriptions.filter((s) => s.parentEmail.toLowerCase() === auth.user.email.toLowerCase());
+    } else if (auth.user.role === 'manager') {
+      scoped = auth.user.assignedBatch
+        ? subscriptions.filter((s) => s.batch === auth.user.assignedBatch)
+        : [];
+    } else {
+      scoped = subscriptions;
+    }
     return successResponse(scoped, 'Subscriptions retrieved successfully');
   } catch (err: any) {
     return errorResponse(err.message || 'Failed to fetch subscriptions', 500);
@@ -48,12 +54,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (body.action === 'updateStatus' && body.subId && body.newStatus) {
+      if (auth.user.role === 'manager') {
+        const target = (await getAllSubscriptions()).find((s) => s.id === body.subId);
+        const inBatch = auth.user.assignedBatch && target?.batch === auth.user.assignedBatch;
+        if (!inBatch) {
+          return errorResponse('You do not have permission to manage this subscription.', 403);
+        }
+      }
       const updated = await updateSubscriptionStatus(body.subId, body.newStatus);
       if (!updated) return errorResponse('Subscription not found', 404);
       return successResponse(updated, 'Subscription status updated');
     }
 
     if (body.id) {
+      if (auth.user.role === 'manager') {
+        const target = (await getAllSubscriptions()).find((s) => s.id === body.id);
+        const inBatch = auth.user.assignedBatch && target?.batch === auth.user.assignedBatch;
+        if (!inBatch) {
+          return errorResponse('You do not have permission to manage this subscription.', 403);
+        }
+      }
       const updated = await updateSubscription(body);
       return successResponse(updated, 'Subscription updated successfully');
     }

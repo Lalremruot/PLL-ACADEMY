@@ -8,6 +8,7 @@ export interface IUser extends Document {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
   passwordHash?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -22,6 +23,7 @@ const UserSchema: Schema = new Schema(
     phone: { type: String, trim: true },
     address: { type: String, trim: true },
     profilePic: { type: String },
+    assignedBatch: { type: String, trim: true },
     passwordHash: { type: String, select: false },
   },
   {

@@ -21,6 +21,7 @@ import {
   apiProcessDueAutoDebits,
   apiFetchAutoDebitTestState,
   apiRunAutoDebitTestAction,
+  apiUpdateStaffProfile,
   type AutoDebitTestState,
 } from '../services/apiClient';
 import ProfilePicUpload from './ProfilePicUpload';
@@ -33,6 +34,7 @@ interface UserAccount {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }
 
 interface SettingsProps {
@@ -212,7 +214,14 @@ export default function Settings({
   const [newManagerPhone, setNewManagerPhone] = useState('');
   const [newManagerAddress, setNewManagerAddress] = useState('');
   const [newManagerProfilePic, setNewManagerProfilePic] = useState('');
+  const [newManagerBatch, setNewManagerBatch] = useState('');
   const [showManagerProfile, setShowManagerProfile] = useState(false);
+
+  // Edit an existing manager's assigned batch
+  const [editingBatchEmail, setEditingBatchEmail] = useState('');
+  const [editingBatchValue, setEditingBatchValue] = useState('');
+  const [batchAssignError, setBatchAssignError] = useState('');
+  const [batchAssignSuccess, setBatchAssignSuccess] = useState('');
 
   // Add Admin Profile Details (name, designation, phone, address, profile pic)
   const [newAdminName, setNewAdminName] = useState('');
@@ -384,6 +393,7 @@ export default function Settings({
         phone: newManagerPhone.trim() || undefined,
         address: newManagerAddress.trim() || undefined,
         profilePic: newManagerProfilePic || undefined,
+        assignedBatch: newManagerBatch || undefined,
       });
       const accounts = await apiFetchStaffAccounts();
       setManagerUsers(accounts.filter((a) => a.role === 'manager'));
@@ -395,10 +405,29 @@ export default function Settings({
       setNewManagerPhone('');
       setNewManagerAddress('');
       setNewManagerProfilePic('');
+      setNewManagerBatch('');
       setShowManagerProfile(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create manager account';
       setAddManagerError(message);
+    }
+  };
+
+  // Save a manager's assigned batch so they only see that batch's students.
+  const handleSaveManagerBatch = async (email: string): Promise<void> => {
+    setBatchAssignError('');
+    setBatchAssignSuccess('');
+    if (!email) return;
+    try {
+      await apiUpdateStaffProfile({ email, assignedBatch: editingBatchValue || undefined });
+      const accounts = await apiFetchStaffAccounts();
+      setManagerUsers(accounts.filter((a) => a.role === 'manager'));
+      setEditingBatchEmail('');
+      setEditingBatchValue('');
+      setBatchAssignSuccess(`Batch updated for ${email}.`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update batch';
+      setBatchAssignError(message);
     }
   };
 
@@ -1644,6 +1673,22 @@ export default function Settings({
                 {showManagerProfile && (
                   <>
                     <div>
+                      <label className="block text-gray-400 mb-1">Assigned Batch</label>
+                      <select
+                        value={newManagerBatch}
+                        onChange={(e) => setNewManagerBatch(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      >
+                        <option value="">Select a batch…</option>
+                        {batches.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                      </select>
+                      <p className="text-[10px] text-gray-500 mt-1">
+                        This manager will only see students in this batch.
+                      </p>
+                    </div>
+                    <div>
                       <label className="block text-gray-400 mb-1">Display Name</label>
                       <input
                         type="text"
@@ -1713,13 +1758,73 @@ export default function Settings({
                 <span className="text-[10px] uppercase text-gray-400 font-bold tracking-wider">
                   Registered Managers ({managerUsers.length})
                 </span>
+                {batchAssignError && (
+                  <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span>{batchAssignError}</span>
+                  </div>
+                )}
+                {batchAssignSuccess && (
+                  <div className="flex items-center gap-1.5 text-brand-emerald font-mono text-[10px]">
+                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                    <span>{batchAssignSuccess}</span>
+                  </div>
+                )}
                 <div className="space-y-1.5 max-h-[140px] overflow-y-auto custom-scrollbar">
                   {managerUsers.map((user, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2 bg-brand-charcoal border border-brand-border/50 rounded-xs">
-                      <span className="text-gray-300 font-mono text-[11px] truncate mr-2">{user.email}</span>
-                      <span className="text-[9px] bg-brand-amethyst/20 text-brand-amethyst px-1.5 py-0.5 rounded-xs font-bold shrink-0">
-                        MANAGER
-                      </span>
+                    <div key={idx} className="p-2 bg-brand-charcoal border border-brand-border/50 rounded-xs space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-300 font-mono text-[11px] truncate mr-2">{user.email}</span>
+                        <span className="text-[9px] bg-brand-amethyst/20 text-brand-amethyst px-1.5 py-0.5 rounded-xs font-bold shrink-0">
+                          MANAGER
+                        </span>
+                      </div>
+                      {editingBatchEmail === user.email ? (
+                        <div className="flex items-center gap-1.5">
+                          <select
+                            value={editingBatchValue}
+                            onChange={(e) => setEditingBatchValue(e.target.value)}
+                            className="flex-1 bg-brand-surface-raised border border-brand-border text-white text-[10px] p-1.5 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                          >
+                            <option value="">No batch</option>
+                            {batches.map((b) => (
+                              <option key={b} value={b}>{b}</option>
+                            ))}
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => handleSaveManagerBatch(user.email)}
+                            className="text-[10px] px-2 py-1 bg-brand-gold text-black rounded-xs font-bold cursor-pointer"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { setEditingBatchEmail(''); setEditingBatchValue(''); }}
+                            className="text-[10px] px-2 py-1 bg-brand-border text-white rounded-xs font-bold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[9px] text-gray-400 font-mono truncate">
+                            Batch: {user.assignedBatch || 'Unassigned'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingBatchEmail(user.email);
+                              setEditingBatchValue(user.assignedBatch || '');
+                              setBatchAssignError('');
+                              setBatchAssignSuccess('');
+                            }}
+                            className="text-[9px] text-brand-gold hover:text-white cursor-pointer"
+                          >
+                            Set batch
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

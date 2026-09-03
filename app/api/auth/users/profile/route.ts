@@ -27,6 +27,11 @@ export async function PUT(req: NextRequest) {
       phone: typeof body.phone === 'string' ? body.phone : undefined,
       address: typeof body.address === 'string' ? body.address : undefined,
       profilePic: typeof body.profilePic === 'string' ? body.profilePic : undefined,
+      // Only admins may change a manager's batch assignment.
+      assignedBatch:
+        auth.user.role === 'admin' && typeof body.assignedBatch === 'string'
+          ? body.assignedBatch
+          : undefined,
     });
     return successResponse(account, 'Profile updated successfully');
   } catch (err: unknown) {

@@ -15,6 +15,8 @@ interface StudentRegistryProps {
   courses: FilmCourse[];
   batches: string[];
   isMobileMode: boolean;
+  isManager?: boolean;
+  managerBatch?: string;
   onSelectSubscription: (sub: Subscription) => void;
   onAddSubscription: (sub: Omit<Subscription, 'id'>) => void;
   onUpdateSubscription: (sub: Subscription) => void;
@@ -29,6 +31,8 @@ export default function StudentRegistry({
   courses,
   batches,
   isMobileMode,
+  isManager = false,
+  managerBatch,
   onSelectSubscription,
   onAddSubscription,
   onUpdateSubscription,
@@ -200,8 +204,13 @@ export default function StudentRegistry({
     resetForm();
   };
 
+  // A manager only sees students in their own assigned batch.
+  const scopedSubscriptions = isManager
+    ? subscriptions.filter(sub => (managerBatch ? sub.batch === managerBatch : false))
+    : subscriptions;
+
   // Filter subscriptions
-  const filteredSubscriptions = subscriptions.filter(sub => {
+  const filteredSubscriptions = scopedSubscriptions.filter(sub => {
     const matchesSearch = 
       sub.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -213,10 +222,13 @@ export default function StudentRegistry({
     return matchesSearch && matchesStatus;
   });
 
+  // Managers never see the payments/money view regardless of state.
+  const effectiveViewMode = isManager && viewMode === 'payments' ? 'grid' : viewMode;
+
   // Calculate some dynamic stats
-  const activeCount = subscriptions.filter(s => s.status === 'Active').length;
-  const pausedCount = subscriptions.filter(s => s.status === 'Paused').length;
-  const canceledCount = subscriptions.filter(s => s.status === 'Canceled').length;
+  const activeCount = scopedSubscriptions.filter(s => s.status === 'Active').length;
+  const pausedCount = scopedSubscriptions.filter(s => s.status === 'Paused').length;
+  const canceledCount = scopedSubscriptions.filter(s => s.status === 'Canceled').length;
 
   // Parse date string into Year and Month (0-indexed)
   const getInvoiceYearMonth = (dateStr: string) => {
@@ -270,9 +282,16 @@ export default function StudentRegistry({
     };
   };
 
+  // Managers see only Paid/Due, never pending or amounts.
+  const hasPaidLatestMonth = (studentName: string) =>
+    invoices.some(inv =>
+      inv.studentName.toLowerCase() === studentName.toLowerCase() &&
+      inv.status === 'Success'
+    );
+
   // Export to CSV Functionality (Fully functional, client side, supports payments tracking)
   const handleExportCSV = () => {
-    if (viewMode === 'payments') {
+    if (viewMode === 'payments' && !isManager) {
       const monthLabel = monthsList.find(m => m.value === filterMonth)?.label || '';
       const headers = ['Student Name', 'Course Program', 'Monthly Fee', 'Subscription Status', 'Payment Status for ' + monthLabel + ' ' + filterYear, 'Invoice ID', 'Paid Up To'];
       const rows = filteredSubscriptions.map(sub => {
@@ -323,7 +342,9 @@ export default function StudentRegistry({
     }
 
     // Default student registry CSV export
-    const headers = ['Subscription ID', 'Student Name', 'Course Name', 'Parent Name', 'Parent Email', 'Status', 'Tier', 'Monthly Fee', 'Next Billing Date'];
+    const headers = isManager
+      ? ['Subscription ID', 'Student Name', 'Course Name', 'Parent Name', 'Parent Email', 'Status', 'Tier', 'Next Billing Date']
+      : ['Subscription ID', 'Student Name', 'Course Name', 'Parent Name', 'Parent Email', 'Status', 'Tier', 'Monthly Fee', 'Next Billing Date'];
     const rows = filteredSubscriptions.map(sub => [
       sub.id,
       sub.studentName,
@@ -332,7 +353,7 @@ export default function StudentRegistry({
       sub.parentEmail,
       sub.status,
       sub.tier,
-      sub.monthlyFee,
+      ...(isManager ? [] : [sub.monthlyFee]),
       formatDisplayDate(sub.nextBillingDate)
     ]);
 
@@ -350,6 +371,16 @@ export default function StudentRegistry({
 
   return (
     <div className="space-y-8">
+      {/* Manager batch-scope notice */}
+      {isManager && (
+        <div className="bg-brand-charcoal border border-brand-gold/20 rounded-xs px-4 py-3 flex items-center gap-2 text-xs">
+          <Users className="h-4 w-4 text-brand-gold shrink-0" />
+          <span className="text-gray-300 font-sans">
+            You are viewing students in your assigned batch:
+            <span className="text-brand-gold font-bold ml-1">{managerBatch || 'Not assigned'}</span>
+          </span>
+        </div>
+      )}
       {/* Registry Filter/Controls bar */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         {/* Search */}
@@ -416,19 +447,21 @@ export default function StudentRegistry({
               <List className="h-3.5 w-3.5 shrink-0" />
               <span className="hidden sm:inline text-[11px]">List</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('payments')}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xs text-xs font-semibold font-sans transition-all cursor-pointer ${
-                viewMode === 'payments'
-                  ? 'bg-brand-gold text-black'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-              title="Monthly Fees Tracker"
-            >
-              <IndianRupee className="h-3.5 w-3.5 text-brand-gold shrink-0" />
-              <span className="text-[11px]">Payment Status</span>
-            </button>
+            {!isManager && (
+              <button
+                type="button"
+                onClick={() => setViewMode('payments')}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xs text-xs font-semibold font-sans transition-all cursor-pointer ${
+                  viewMode === 'payments'
+                    ? 'bg-brand-gold text-black'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+                title="Monthly Fees Tracker"
+              >
+                <IndianRupee className="h-3.5 w-3.5 text-brand-gold shrink-0" />
+                <span className="text-[11px]">Payment Status</span>
+              </button>
+            )}
           </div>
 
           <button 
@@ -453,7 +486,7 @@ export default function StudentRegistry({
             Clear Filters
           </button>
         </div>
-      ) : viewMode === 'grid' ? (
+      ) : effectiveViewMode === 'grid' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredSubscriptions.map((sub) => {
             const isActive = sub.status === 'Active';
@@ -543,11 +576,22 @@ export default function StudentRegistry({
                 </div>
 
                 <div>
-                  {/* Tuition info block */}
-                  <div className="bg-brand-charcoal p-2 rounded-xs border border-brand-border/30 flex items-center justify-between">
-                    <span className="font-mono text-[8px] uppercase tracking-wider text-gray-500">Tuition</span>
-                    <span className="font-sans text-xs font-extrabold text-brand-gold">₹{sub.monthlyFee.toFixed(2)}/mo</span>
-                  </div>
+                  {isManager ? (
+                    /* Managers see only a Paid/Due status, never amounts. */
+                    <div className="bg-brand-charcoal p-2 rounded-xs border border-brand-border/30 flex items-center justify-between">
+                      <span className="font-mono text-[8px] uppercase tracking-wider text-gray-500">
+                        {hasPaidLatestMonth(sub.studentName) ? 'Status' : 'Status'}
+                      </span>
+                      <span className={`font-sans text-xs font-extrabold ${hasPaidLatestMonth(sub.studentName) ? 'text-brand-emerald' : 'text-brand-cinnabar'}`}>
+                        {hasPaidLatestMonth(sub.studentName) ? 'Paid' : 'Due'}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="bg-brand-charcoal p-2 rounded-xs border border-brand-border/30 flex items-center justify-between">
+                      <span className="font-mono text-[8px] uppercase tracking-wider text-gray-500">Tuition</span>
+                      <span className="font-sans text-xs font-extrabold text-brand-gold">₹{sub.monthlyFee.toFixed(2)}/mo</span>
+                    </div>
+                  )}
 
                   {/* Action Buttons */}
                   <div className="flex gap-2 pt-2.5 mt-2.5 border-t border-brand-border/20">
@@ -576,7 +620,7 @@ export default function StudentRegistry({
             );
           })}
         </div>
-      ) : viewMode === 'list' ? (
+      ) : effectiveViewMode === 'list' ? (
         /* List View */
         <div className="space-y-3.5">
           {/* Table Header Row (Hidden on mobile) */}
@@ -584,7 +628,7 @@ export default function StudentRegistry({
             <div className="col-span-3">Student & Enrollment</div>
             <div className="col-span-3">Parent & Contact</div>
             <div className="col-span-2">Program Course</div>
-            <div className="col-span-2">Tuition Rate</div>
+            <div className="col-span-2">{isManager ? 'Payment Status' : 'Tuition Rate'}</div>
             <div className="col-span-2 text-right">Status & Actions</div>
           </div>
 
@@ -648,13 +692,21 @@ export default function StudentRegistry({
                     )}
                   </div>
 
-                  {/* Tuition Rates */}
+                  {/* Tuition Rates / (managers: paid status only) */}
                   <div className="col-span-1 md:col-span-2 space-y-0.5">
-                    <p className="font-mono text-[9px] text-gray-500 uppercase tracking-wider md:hidden">Tuition Rate</p>
+                    {isManager && (
+                      <p className="font-mono text-[9px] text-gray-500 uppercase tracking-wider md:hidden">Payment Status</p>
+                    )}
                     <div className="flex md:flex-col items-baseline md:items-start gap-2">
-                      <span className="font-sans text-xs font-extrabold text-white">
-                        ₹{sub.monthlyFee.toFixed(2)}/mo
-                      </span>
+                      {isManager ? (
+                        <span className={`font-sans text-xs font-extrabold ${hasPaidLatestMonth(sub.studentName) ? 'text-brand-emerald' : 'text-brand-cinnabar'}`}>
+                          {hasPaidLatestMonth(sub.studentName) ? 'Paid' : 'Due'}
+                        </span>
+                      ) : (
+                        <span className="font-sans text-xs font-extrabold text-white">
+                          ₹{sub.monthlyFee.toFixed(2)}/mo
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -1081,13 +1133,15 @@ export default function StudentRegistry({
       })()}
 
       {/* Dynamic Floating Action Button for Adding Student (FAB) */}
-      <button 
-        onClick={handleOpenAddModal}
-        className="fixed right-6 bottom-24 md:bottom-12 flex items-center gap-2 px-6 py-4 bg-brand-gold hover:bg-brand-gold-bright text-black rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all z-40 font-sans font-bold text-xs uppercase tracking-wider"
-      >
-        <Plus className="h-4 w-4 font-extrabold stroke-[3]" />
-        <span>Add Student</span>
-      </button>
+      {!isManager && (
+        <button 
+          onClick={handleOpenAddModal}
+          className="fixed right-6 bottom-24 md:bottom-12 flex items-center gap-2 px-6 py-4 bg-brand-gold hover:bg-brand-gold-bright text-black rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-all z-40 font-sans font-bold text-xs uppercase tracking-wider"
+        >
+          <Plus className="h-4 w-4 font-extrabold stroke-[3]" />
+          <span>Add Student</span>
+        </button>
+      )}
 
       {/* Add/Edit Modal Portal Overlay */}
       <AnimatePresence>

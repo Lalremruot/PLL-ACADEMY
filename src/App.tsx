@@ -74,6 +74,7 @@ interface SessionUser {
   subscriptionId?: string;
   studentName?: string;
   parentLoginId?: string;
+  assignedBatch?: string;
 }
 
 /**
@@ -166,7 +167,7 @@ export default function App() {
   const isManager = loggedInUser?.role === 'manager';
   const isParent = loggedInUser?.role === 'parent';
 
-  const canViewLedger = isAdmin || (isManager && hasPermission(managerPermissions, 'canManageInvoices'));
+  const canViewLedger = isAdmin;
   const canViewStudents =
     isAdmin ||
     (isManager &&
@@ -175,7 +176,7 @@ export default function App() {
   const canManageStudents = isAdmin || (isManager && hasPermission(managerPermissions, 'canManageStudents'));
   const canMarkAttendance =
     isAdmin || (isManager && hasPermission(managerPermissions, 'canMarkStudentAttendance'));
-  const canAccessReports = isAdmin || (isManager && hasPermission(managerPermissions, 'canAccessReports'));
+  const canAccessReports = isAdmin;
   const canManageBatches = isAdmin || (isManager && hasPermission(managerPermissions, 'canManageBatches'));
   const canManagerCheckIn =
     isManager && hasPermission(managerPermissions, 'canCheckInManagerAttendance');
@@ -501,6 +502,7 @@ export default function App() {
               courses={courses}
               batches={batches}
               isAdmin={isAdmin}
+              isManager={isManager}
               onUpdateSubscription={handleUpdateSubscription}
             />
           )}
@@ -593,6 +595,8 @@ export default function App() {
                   courses={courses}
                   batches={batches}
                   isMobileMode={isMobileMode}
+                  isManager={isManager}
+                  managerBatch={isManager ? loggedInUser?.assignedBatch : undefined}
                   onAddSubscription={canManageStudents ? handleAddSubscription : () => undefined}
                   onUpdateSubscription={canManageStudents ? handleUpdateSubscription : async () => undefined}
                   onSelectSubscription={setSelectedSubscription}

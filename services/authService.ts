@@ -130,6 +130,7 @@ export async function createUserAccount(input: {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }) {
   const db = await connectToDatabase();
   const email = input.email.toLowerCase().trim();
@@ -150,6 +151,7 @@ export async function createUserAccount(input: {
       phone: input.phone?.trim(),
       address: input.address?.trim(),
       profilePic: input.profilePic,
+      assignedBatch: input.role === 'manager' ? input.assignedBatch?.trim() : undefined,
     });
     return {
       email: created.email,
@@ -159,6 +161,7 @@ export async function createUserAccount(input: {
       phone: created.phone,
       address: created.address,
       profilePic: created.profilePic,
+      assignedBatch: created.assignedBatch,
     };
   }
   return {
@@ -169,6 +172,7 @@ export async function createUserAccount(input: {
     phone: input.phone?.trim(),
     address: input.address?.trim(),
     profilePic: input.profilePic,
+    assignedBatch: input.role === 'manager' ? input.assignedBatch?.trim() : undefined,
   };
 }
 
@@ -236,6 +240,7 @@ export async function listStaffAccounts() {
     phone: doc.phone,
     address: doc.address,
     profilePic: doc.profilePic,
+    assignedBatch: doc.assignedBatch,
   }));
 }
 
@@ -254,6 +259,7 @@ export async function updateStaffProfile(input: {
   phone?: string;
   address?: string;
   profilePic?: string;
+  assignedBatch?: string;
 }) {
   const db = await connectToDatabase();
   const email = input.email.toLowerCase().trim();
@@ -267,6 +273,7 @@ export async function updateStaffProfile(input: {
           phone: input.phone,
           address: input.address,
           profilePic: input.profilePic,
+          assignedBatch: input.assignedBatch,
         },
       },
       { new: true }
@@ -282,6 +289,7 @@ export async function updateStaffProfile(input: {
       phone: user.phone,
       address: user.address,
       profilePic: user.profilePic,
+      assignedBatch: user.assignedBatch,
     };
   }
   return {
@@ -292,6 +300,7 @@ export async function updateStaffProfile(input: {
     phone: input.phone,
     address: input.address,
     profilePic: input.profilePic,
+    assignedBatch: input.assignedBatch,
   };
 }
 
@@ -326,6 +335,7 @@ export async function loginUser(email: string, role: 'admin' | 'manager' | 'pare
         email: user.email,
         role: user.role as 'admin' | 'manager',
         name: user.name,
+        assignedBatch: user.role === 'manager' ? user.assignedBatch : undefined,
       };
     }
     if (isPrimaryAdmin) {

@@ -6,7 +6,7 @@ import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuth(req);
+  const auth = requireAuth(req, ['admin', 'parent']);
   if ('response' in auth) return auth.response;
   const limited = rateLimit(req, 'rzp-subscription-order', 20, auth.user.email);
   if (limited) return limited;

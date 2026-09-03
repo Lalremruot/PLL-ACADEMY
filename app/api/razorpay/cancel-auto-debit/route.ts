@@ -5,7 +5,7 @@ import { disableAutoDebit } from '@/services/subscriptionBillingService';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function POST(req: NextRequest) {
-  const auth = requireAuth(req);
+  const auth = requireAuth(req, ['admin', 'parent']);
   if ('response' in auth) return auth.response;
 
   try {

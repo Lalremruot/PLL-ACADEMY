@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
         subscriptionId: session.subscriptionId,
         studentName: session.studentName,
         parentLoginId: session.parentLoginId,
+        assignedBatch: session.assignedBatch,
       },
       'Session active'
     );

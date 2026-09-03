@@ -8,7 +8,14 @@ export async function GET(req: NextRequest) {
   if ('response' in auth) return auth.response;
   try {
     let invoices = await getAllInvoices();
-    if (auth.user.role === 'parent') {
+    if (auth.user.role === 'manager') {
+      // A manager only sees payment status for students in their own batch.
+      const { getAllSubscriptions } = await import('@/services/subscriptionService');
+      const batchStudents = (await getAllSubscriptions())
+        .filter((sub) => auth.user.assignedBatch ? sub.batch === auth.user.assignedBatch : false)
+        .map((sub) => sub.studentName.toLowerCase());
+      invoices = invoices.filter((inv) => batchStudents.includes(inv.studentName.toLowerCase()));
+    } else if (auth.user.role === 'parent') {
       invoices = invoices.filter((inv) => {
         if (auth.user.studentName) {
           return inv.studentName.toLowerCase() === auth.user.studentName!.toLowerCase();

@@ -12,6 +12,8 @@ export interface SessionPayload {
   subscriptionId?: string;
   studentName?: string;
   parentLoginId?: string;
+  /** Set for manager sessions — scopes the manager to one batch */
+  assignedBatch?: string;
   exp: number;
 }
 
@@ -37,6 +39,7 @@ export function createSessionToken(input: {
   subscriptionId?: string;
   studentName?: string;
   parentLoginId?: string;
+  assignedBatch?: string;
 }): string {
   const body: SessionPayload = { ...input, exp: Date.now() + SESSION_TTL_MS };
   const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
