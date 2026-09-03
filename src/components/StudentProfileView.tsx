@@ -143,52 +143,11 @@ export default function StudentProfileView({
     }, 1500);
   };
 
-  // Get payments/invoices matching this student
-  const studentInvoices = invoices.filter(
+  // Get payments/invoices matching this student (real records only). A student
+  // who has not yet paid shows an empty ledger — no simulated/fake entries.
+  const displayInvoices = invoices.filter(
     inv => inv.studentName.toLowerCase() === subscription.studentName.toLowerCase()
   );
-
-  // If no invoices exist for this student, simulate the standard ones from the HTML
-  const displayInvoices = studentInvoices.length > 0 ? studentInvoices : [
-    {
-      id: `INV-SEP-${subscription.id.slice(-4)}`,
-      studentName: subscription.studentName,
-      parentName: subscription.parentName,
-      parentEmail: subscription.parentEmail,
-      amount: subscription.monthlyFee,
-      courseName: subscription.courseName,
-      date: '2026-09-15',
-      dueDate: '2026-09-25',
-      status: 'Success' as const,
-      transactionId: 'TXN-9824-A',
-      semester: 'Summer 2026'
-    },
-    {
-      id: `INV-AUG-${subscription.id.slice(-4)}`,
-      studentName: subscription.studentName,
-      parentName: subscription.parentName,
-      parentEmail: subscription.parentEmail,
-      amount: subscription.monthlyFee,
-      courseName: subscription.courseName,
-      date: '2026-08-15',
-      dueDate: '2026-08-25',
-      status: 'Success' as const,
-      transactionId: 'TXN-8201-B',
-      semester: 'Summer 2026'
-    },
-    {
-      id: `INV-JUL-${subscription.id.slice(-4)}`,
-      studentName: subscription.studentName,
-      parentName: subscription.parentName,
-      parentEmail: subscription.parentEmail,
-      amount: subscription.monthlyFee,
-      courseName: subscription.courseName,
-      date: '2026-07-15',
-      dueDate: '2026-07-25',
-      status: 'Failed' as const,
-      semester: 'Summer 2026'
-    }
-  ];
 
   return (
     <div className="space-y-6">
