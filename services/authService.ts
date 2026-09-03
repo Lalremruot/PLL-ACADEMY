@@ -126,6 +126,10 @@ export async function createUserAccount(input: {
   role: 'admin' | 'manager';
   name?: string;
   password: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
 }) {
   const db = await connectToDatabase();
   const email = input.email.toLowerCase().trim();
@@ -142,10 +146,30 @@ export async function createUserAccount(input: {
       role: input.role,
       name: input.name?.trim() || resolveDisplayName(input.role),
       passwordHash: hashPassword(input.password),
+      designation: input.designation?.trim(),
+      phone: input.phone?.trim(),
+      address: input.address?.trim(),
+      profilePic: input.profilePic,
     });
-    return { email: created.email, role: created.role, name: created.name };
+    return {
+      email: created.email,
+      role: created.role,
+      name: created.name,
+      designation: created.designation,
+      phone: created.phone,
+      address: created.address,
+      profilePic: created.profilePic,
+    };
   }
-  return { email, role: input.role, name: input.name?.trim() || resolveDisplayName(input.role) };
+  return {
+    email,
+    role: input.role,
+    name: input.name?.trim() || resolveDisplayName(input.role),
+    designation: input.designation?.trim(),
+    phone: input.phone?.trim(),
+    address: input.address?.trim(),
+    profilePic: input.profilePic,
+  };
 }
 
 /**

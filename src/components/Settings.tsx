@@ -21,7 +21,6 @@ import {
   apiProcessDueAutoDebits,
   apiFetchAutoDebitTestState,
   apiRunAutoDebitTestAction,
-  apiUpdateStaffProfile,
   type AutoDebitTestState,
 } from '../services/apiClient';
 import ProfilePicUpload from './ProfilePicUpload';
@@ -207,6 +206,21 @@ export default function Settings({
   const [showNewManagerPass, setShowNewManagerPass] = useState(false);
   const [addManagerError, setAddManagerError] = useState('');
   const [addManagerSuccess, setAddManagerSuccess] = useState('');
+  // Manager profile details captured at creation
+  const [newManagerName, setNewManagerName] = useState('');
+  const [newManagerDesignation, setNewManagerDesignation] = useState('');
+  const [newManagerPhone, setNewManagerPhone] = useState('');
+  const [newManagerAddress, setNewManagerAddress] = useState('');
+  const [newManagerProfilePic, setNewManagerProfilePic] = useState('');
+  const [showManagerProfile, setShowManagerProfile] = useState(false);
+
+  // Add Admin Profile Details (name, designation, phone, address, profile pic)
+  const [newAdminName, setNewAdminName] = useState('');
+  const [newAdminDesignation, setNewAdminDesignation] = useState('');
+  const [newAdminPhone, setNewAdminPhone] = useState('');
+  const [newAdminAddress, setNewAdminAddress] = useState('');
+  const [newAdminProfilePic, setNewAdminProfilePic] = useState('');
+  const [showAdminProfile, setShowAdminProfile] = useState(false);
 
   // Manager permissions draft
   const [permDraft, setPermDraft] = useState<ManagerPermissions>(managerPermissions);
@@ -230,19 +244,6 @@ export default function Settings({
   const [showChangePass, setShowChangePass] = useState(false);
   const [changePassError, setChangePassError] = useState('');
   const [changePassSuccess, setChangePassSuccess] = useState('');
-
-  // Staff Profile Edit State
-  const [profileTarget, setProfileTarget] = useState('');
-  const [profileName, setProfileName] = useState('');
-  const [profileDesignation, setProfileDesignation] = useState('');
-  const [profilePhone, setProfilePhone] = useState('');
-  const [profileAddress, setProfileAddress] = useState('');
-  const [profilePic, setProfilePic] = useState('');
-  const [profileError, setProfileError] = useState('');
-  const [profileSuccess, setProfileSuccess] = useState('');
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  const allStaffAccounts = [...adminUsers, ...managerUsers];
 
   // Load Admin / Manager Accounts from the server
   useEffect(() => {
@@ -378,12 +379,23 @@ export default function Settings({
         email: newManagerEmail.trim().toLowerCase(),
         role: 'manager',
         password: newManagerPassword,
+        name: newManagerName.trim() || undefined,
+        designation: newManagerDesignation.trim() || undefined,
+        phone: newManagerPhone.trim() || undefined,
+        address: newManagerAddress.trim() || undefined,
+        profilePic: newManagerProfilePic || undefined,
       });
       const accounts = await apiFetchStaffAccounts();
       setManagerUsers(accounts.filter((a) => a.role === 'manager'));
       setAddManagerSuccess(`Manager account created for: ${newManagerEmail}`);
       setNewManagerEmail('');
       setNewManagerPassword('');
+      setNewManagerName('');
+      setNewManagerDesignation('');
+      setNewManagerPhone('');
+      setNewManagerAddress('');
+      setNewManagerProfilePic('');
+      setShowManagerProfile(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create manager account';
       setAddManagerError(message);
@@ -552,12 +564,23 @@ export default function Settings({
         email: newAdminEmail.trim().toLowerCase(),
         role: 'admin',
         password: newAdminPassword,
+        name: newAdminName.trim() || undefined,
+        designation: newAdminDesignation.trim() || undefined,
+        phone: newAdminPhone.trim() || undefined,
+        address: newAdminAddress.trim() || undefined,
+        profilePic: newAdminProfilePic || undefined,
       });
       const accounts = await apiFetchStaffAccounts();
       setAdminUsers(accounts.filter((a) => a.role === 'admin'));
       setAddAdminSuccess(`Admin account created successfully for: ${newAdminEmail}`);
       setNewAdminEmail('');
       setNewAdminPassword('');
+      setNewAdminName('');
+      setNewAdminDesignation('');
+      setNewAdminPhone('');
+      setNewAdminAddress('');
+      setNewAdminProfilePic('');
+      setShowAdminProfile(false);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create admin account';
       setAddAdminError(message);
@@ -603,57 +626,6 @@ export default function Settings({
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update password';
       setChangePassError(message);
-    }
-  };
-
-  // Populate the profile editor from a chosen staff account (defaults to the
-  // current user once accounts load).
-  const applyProfileAccount = (account?: UserAccount) => {
-    setProfileTarget(account?.email ?? '');
-    setProfileName(account?.name ?? '');
-    setProfileDesignation(account?.designation ?? '');
-    setProfilePhone(account?.phone ?? '');
-    setProfileAddress(account?.address ?? '');
-    setProfilePic(account?.profilePic ?? '');
-    setProfileError('');
-    setProfileSuccess('');
-  };
-
-  useEffect(() => {
-    if (!currentUserEmail || allStaffAccounts.length === 0) return;
-    const current = allStaffAccounts.find((a) => a.email.toLowerCase() === currentUserEmail.toLowerCase());
-    if (current && !profileTarget) {
-      applyProfileAccount(current);
-    }
-  }, [allStaffAccounts, currentUserEmail, profileTarget]);
-
-  const handleSaveProfile = async (e: React.FormEvent): Promise<void> => {
-    e.preventDefault();
-    setProfileError('');
-    setProfileSuccess('');
-    if (!profileTarget) {
-      setProfileError('Select an account to update.');
-      return;
-    }
-    setIsSavingProfile(true);
-    try {
-      await apiUpdateStaffProfile({
-        email: profileTarget,
-        name: profileName.trim(),
-        designation: profileDesignation.trim(),
-        phone: profilePhone.trim(),
-        address: profileAddress.trim(),
-        profilePic: profilePic || undefined,
-      });
-      const accounts = await apiFetchStaffAccounts();
-      setAdminUsers(accounts.filter((a) => a.role === 'admin'));
-      setManagerUsers(accounts.filter((a) => a.role === 'manager'));
-      setProfileSuccess(`Profile updated for ${profileTarget}.`);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to update profile';
-      setProfileError(message);
-    } finally {
-      setIsSavingProfile(false);
     }
   };
 
@@ -1485,112 +1457,6 @@ export default function Settings({
             transition={{ duration: 0.15 }}
             className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8"
           >
-            {/* Staff Profile */}
-            <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">
-              <h3 className="font-sans text-sm font-extrabold text-white uppercase tracking-wider flex items-center gap-2">
-                <Users className="h-4.5 w-4.5 text-brand-gold" />
-                Staff Profile
-              </h3>
-              <p className="text-xs text-gray-400">
-                {isAdmin
-                  ? 'Update profile details for any administrator or manager account in the academy.'
-                  : 'Update your own profile details shown to other staff members.'}
-              </p>
-
-              <form onSubmit={handleSaveProfile} className="space-y-4 text-xs font-sans pt-2">
-                {isAdmin && (
-                  <div>
-                    <label className="block text-gray-400 mb-1">Account</label>
-                    <select
-                      value={profileTarget}
-                      onChange={(e) =>
-                        applyProfileAccount(allStaffAccounts.find((a) => a.email === e.target.value))
-                      }
-                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
-                    >
-                      <option value="">Select an account…</option>
-                      {allStaffAccounts.map((a) => (
-                        <option key={a.email} value={a.email}>
-                          {a.name || a.email} ({a.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-gray-400 mb-1">Display Name</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Coach Rajesh Kumar"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">Designation</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Head Coach, Academy Manager"
-                    value={profileDesignation}
-                    onChange={(e) => setProfileDesignation(e.target.value)}
-                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">Phone Number</label>
-                  <input
-                    type="tel"
-                    placeholder="e.g. +91 98765 43210"
-                    value={profilePhone}
-                    onChange={(e) => setProfilePhone(e.target.value)}
-                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">Address</label>
-                  <textarea
-                    placeholder="Mailing or residential address"
-                    value={profileAddress}
-                    onChange={(e) => setProfileAddress(e.target.value)}
-                    rows={2}
-                    className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-gray-400 mb-1">Profile Picture</label>
-                  <ProfilePicUpload value={profilePic} onChange={setProfilePic} />
-                </div>
-
-                {profileError && (
-                  <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
-                    <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                    <span>{profileError}</span>
-                  </div>
-                )}
-                {profileSuccess && (
-                  <div className="flex items-center gap-1.5 text-brand-emerald font-mono text-[10px]">
-                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                    <span>{profileSuccess}</span>
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={isSavingProfile}
-                  className="w-full bg-brand-gold hover:bg-brand-gold-bright disabled:opacity-50 text-black font-bold py-2.5 rounded-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Check className="h-4 w-4" />
-                  {isSavingProfile ? 'Saving…' : 'Save Profile'}
-                </button>
-              </form>
-            </div>
-
             {isAdmin && (
             <>
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-5 space-y-4 hover:border-brand-gold/30 transition-all">
@@ -1633,6 +1499,63 @@ export default function Settings({
                     </button>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowAdminProfile(!showAdminProfile)}
+                  className="text-[10px] font-sans uppercase tracking-wider text-brand-gold hover:text-white cursor-pointer"
+                >
+                  {showAdminProfile ? '− Hide profile details' : '+ Add profile details'}
+                </button>
+
+                {showAdminProfile && (
+                  <>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Display Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Coach Rajesh Kumar"
+                        value={newAdminName}
+                        onChange={(e) => setNewAdminName(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Designation</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Head Coach, Academy Manager"
+                        value={newAdminDesignation}
+                        onChange={(e) => setNewAdminDesignation(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 98765 43210"
+                        value={newAdminPhone}
+                        onChange={(e) => setNewAdminPhone(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Address</label>
+                      <textarea
+                        placeholder="Mailing or residential address"
+                        value={newAdminAddress}
+                        onChange={(e) => setNewAdminAddress(e.target.value)}
+                        rows={2}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Profile Picture</label>
+                      <ProfilePicUpload value={newAdminProfilePic} onChange={setNewAdminProfilePic} />
+                    </div>
+                  </>
+                )}
 
                 {addAdminError && (
                   <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
@@ -1709,6 +1632,63 @@ export default function Settings({
                     </button>
                   </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowManagerProfile(!showManagerProfile)}
+                  className="text-[10px] font-sans uppercase tracking-wider text-brand-gold hover:text-white cursor-pointer"
+                >
+                  {showManagerProfile ? '− Hide profile details' : '+ Add profile details'}
+                </button>
+
+                {showManagerProfile && (
+                  <>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Display Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Coach Rajesh Kumar"
+                        value={newManagerName}
+                        onChange={(e) => setNewManagerName(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Designation</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Head Coach, Academy Manager"
+                        value={newManagerDesignation}
+                        onChange={(e) => setNewManagerDesignation(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        placeholder="e.g. +91 98765 43210"
+                        value={newManagerPhone}
+                        onChange={(e) => setNewManagerPhone(e.target.value)}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Address</label>
+                      <textarea
+                        placeholder="Mailing or residential address"
+                        value={newManagerAddress}
+                        onChange={(e) => setNewManagerAddress(e.target.value)}
+                        rows={2}
+                        className="w-full bg-brand-charcoal border border-brand-border text-white p-2.5 rounded-xs focus:outline-hidden focus:border-brand-gold transition-colors resize-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-400 mb-1">Profile Picture</label>
+                      <ProfilePicUpload value={newManagerProfilePic} onChange={setNewManagerProfilePic} />
+                    </div>
+                  </>
+                )}
                 {addManagerError && (
                   <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
                     <AlertCircle className="h-3.5 w-3.5 shrink-0" />

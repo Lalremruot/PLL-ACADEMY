@@ -95,6 +95,11 @@ export async function apiCreateUserAccount(input: {
   email: string;
   role: 'admin' | 'manager';
   password: string;
+  name?: string;
+  designation?: string;
+  phone?: string;
+  address?: string;
+  profilePic?: string;
 }): Promise<StaffAccount> {
   const res = await fetch('/api/auth/users', {
     method: 'POST',

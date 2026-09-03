@@ -37,7 +37,16 @@ export async function POST(req: NextRequest) {
     if (password.length < 6) {
       return errorResponse('Password must be at least 6 characters.', 400);
     }
-    const account = await createUserAccount({ email, role, password });
+    const account = await createUserAccount({
+      email,
+      role,
+      password,
+      name: typeof body.name === 'string' ? body.name : undefined,
+      designation: typeof body.designation === 'string' ? body.designation : undefined,
+      phone: typeof body.phone === 'string' ? body.phone : undefined,
+      address: typeof body.address === 'string' ? body.address : undefined,
+      profilePic: typeof body.profilePic === 'string' ? body.profilePic : undefined,
+    });
     return successResponse(account, 'Account created successfully', 201);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to create account';
