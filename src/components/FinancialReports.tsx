@@ -96,9 +96,14 @@ export default function FinancialReports({
     .filter(inv => inv.status === 'Success')
     .reduce((sum, inv) => sum + inv.amount, 0);
 
-  // Simulated registration fees (e.g. initial sign-ups or flat rate)
-  const registrationFeeRevenue = subscriptions.length * 150; // Dynamic ₹150 per student subscription
-  const adjustedTotalRevenue = totalRevenue + registrationFeeRevenue;
+  // Registration & facility fees come from actual successful invoices; with no
+  // real sign-on/gear invoices recorded this is ₹0 rather than a fabricated figure.
+  const registrationFeeRevenue = invoices
+    .filter(inv => inv.status === 'Success')
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  // Aggregate gross revenue reflects only money actually collected from the ledger.
+  const adjustedTotalRevenue = totalRevenue;
 
   // Filtered transactions for the table
   const filteredTransactions = invoices.filter(inv => {
