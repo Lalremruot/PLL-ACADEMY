@@ -2,6 +2,7 @@ import { randomBytes, scryptSync, timingSafeEqual } from 'crypto';
 import { connectToDatabase } from '@/lib/mongodb';
 import { UserModel } from '@/models/User';
 import { getSubscriptionByParentLoginId } from '@/services/subscriptionService';
+import { getManagerLocationAssignments } from '@/services/settingsService';
 
 export const KNOWN_GUARANTORS = [
   { name: 'Marcus Sterling', email: 'm.sterling@footballmail.com', role: 'parent' as const },
@@ -131,6 +132,7 @@ export async function createUserAccount(input: {
   address?: string;
   profilePic?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }) {
   const db = await connectToDatabase();
   const email = input.email.toLowerCase().trim();
@@ -152,6 +154,7 @@ export async function createUserAccount(input: {
       address: input.address?.trim(),
       profilePic: input.profilePic,
       assignedBatch: input.role === 'manager' ? input.assignedBatch?.trim() : undefined,
+      assignedLocationId: input.role === 'manager' ? input.assignedLocationId?.trim() : undefined,
     });
     return {
       email: created.email,
@@ -162,6 +165,7 @@ export async function createUserAccount(input: {
       address: created.address,
       profilePic: created.profilePic,
       assignedBatch: created.assignedBatch,
+      assignedLocationId: created.assignedLocationId,
     };
   }
   return {
@@ -173,6 +177,7 @@ export async function createUserAccount(input: {
     address: input.address?.trim(),
     profilePic: input.profilePic,
     assignedBatch: input.role === 'manager' ? input.assignedBatch?.trim() : undefined,
+    assignedLocationId: input.role === 'manager' ? input.assignedLocationId?.trim() : undefined,
   };
 }
 
@@ -241,6 +246,7 @@ export async function listStaffAccounts() {
     address: doc.address,
     profilePic: doc.profilePic,
     assignedBatch: doc.assignedBatch,
+    assignedLocationId: doc.assignedLocationId,
   }));
 }
 
@@ -260,6 +266,7 @@ export async function updateStaffProfile(input: {
   address?: string;
   profilePic?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }) {
   const db = await connectToDatabase();
   const email = input.email.toLowerCase().trim();
@@ -274,6 +281,7 @@ export async function updateStaffProfile(input: {
           address: input.address,
           profilePic: input.profilePic,
           assignedBatch: input.assignedBatch,
+          assignedLocationId: input.assignedLocationId,
         },
       },
       { new: true }
@@ -290,6 +298,7 @@ export async function updateStaffProfile(input: {
       address: user.address,
       profilePic: user.profilePic,
       assignedBatch: user.assignedBatch,
+      assignedLocationId: user.assignedLocationId,
     };
   }
   return {
@@ -301,6 +310,7 @@ export async function updateStaffProfile(input: {
     address: input.address,
     profilePic: input.profilePic,
     assignedBatch: input.assignedBatch,
+    assignedLocationId: input.assignedLocationId,
   };
 }
 
@@ -336,6 +346,10 @@ export async function loginUser(email: string, role: 'admin' | 'manager' | 'pare
         role: user.role as 'admin' | 'manager',
         name: user.name,
         assignedBatch: user.role === 'manager' ? user.assignedBatch : undefined,
+        assignedLocationId:
+          user.role === 'manager'
+            ? (await getManagerLocationAssignments())[user.email] || user.assignedLocationId || undefined
+            : undefined,
       };
     }
     if (isPrimaryAdmin) {

@@ -1,4 +1,4 @@
-import { Invoice, Subscription, FilmCourse, ManagerPermissions, AcademyLocationAndTiming, StudentAttendanceRecord, ManagerAttendanceRecord } from '../types';
+import { Invoice, Subscription, FilmCourse, ManagerPermissions, AcademyLocationAndTiming, AcademyLocation, StudentAttendanceRecord, ManagerAttendanceRecord } from '../types';
 
 export interface SessionUser {
   email: string;
@@ -8,6 +8,7 @@ export interface SessionUser {
   studentName?: string;
   parentLoginId?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }
 
 export interface StaffAccount {
@@ -19,6 +20,7 @@ export interface StaffAccount {
   address?: string;
   profilePic?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }
 
 export async function apiUpdateStaffProfile(input: {
@@ -29,6 +31,7 @@ export async function apiUpdateStaffProfile(input: {
   address?: string;
   profilePic?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }): Promise<StaffAccount> {
   const res = await fetch('/api/auth/users/profile', {
     method: 'PUT',
@@ -617,6 +620,78 @@ export async function apiManagerCheckOut(input: {
   const data = await res.json();
   if (!res.ok || !data.success) {
     throw new Error(data.error || 'Failed to record manager check-out');
+  }
+  return data.data;
+}
+
+export async function apiFetchLocations(): Promise<AcademyLocation[]> {
+  const res = await fetch('/api/settings/locations');
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to fetch locations');
+  }
+  return data.data;
+}
+
+export async function apiAddLocation(
+  location: Omit<AcademyLocation, 'id'>
+): Promise<AcademyLocation[]> {
+  const res = await fetch('/api/settings/locations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(location),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to add location');
+  }
+  return data.data;
+}
+
+export async function apiUpdateLocation(location: AcademyLocation): Promise<AcademyLocation[]> {
+  const res = await fetch('/api/settings/locations', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(location),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to update location');
+  }
+  return data.data;
+}
+
+export async function apiDeleteLocation(id: string): Promise<AcademyLocation[]> {
+  const res = await fetch(`/api/settings/locations?id=${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to delete location');
+  }
+  return data.data;
+}
+
+export async function apiFetchManagerAssignments(): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings/locations/assignments');
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to fetch manager location assignments');
+  }
+  return data.data;
+}
+
+export async function apiSaveManagerAssignments(
+  assignments: Record<string, string>
+): Promise<Record<string, string>> {
+  const res = await fetch('/api/settings/locations/assignments', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(assignments),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to save manager location assignments');
   }
   return data.data;
 }

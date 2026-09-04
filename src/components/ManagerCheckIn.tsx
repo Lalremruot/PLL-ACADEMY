@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type {
   AcademyLocationAndTiming,
+  AcademyLocation,
   ManagerAttendanceRecord,
   ManagerCheckInStatus,
 } from '../types';
@@ -50,6 +51,10 @@ interface ManagerCheckInProps {
   academySettings: AcademyLocationAndTiming;
   canCheckIn: boolean;
   isAdminView?: boolean;
+  /** Registry of named check-in locations the admin manages. */
+  locations?: AcademyLocation[];
+  /** The id of the location this manager is assigned to check in at. */
+  assignedLocationId?: string;
 }
 
 interface GeoPosition {
@@ -86,12 +91,45 @@ export default function ManagerCheckIn({
   academySettings,
   canCheckIn,
   isAdminView = false,
+  locations = [],
+  assignedLocationId,
 }: ManagerCheckInProps) {
   const today = formatDateKey(new Date());
+  const assignedLocation = useMemo(
+    () => locations.find((loc) => loc.id === assignedLocationId) || null,
+    [locations, assignedLocationId]
+  );
+
+  // Geofence + shift for the manager's own check-in: the assigned location wins,
+  // falling back to the single global academy settings when unassigned.
+  const geofence = useMemo(
+    () =>
+      assignedLocation
+        ? {
+            latitude: assignedLocation.latitude,
+            longitude: assignedLocation.longitude,
+            radiusMeters: assignedLocation.radiusMeters,
+            address: assignedLocation.address,
+            shiftStartTime: assignedLocation.shiftStartTime,
+            shiftEndTime: assignedLocation.shiftEndTime,
+            gracePeriodMinutes: assignedLocation.gracePeriodMinutes,
+          }
+        : {
+            latitude: academySettings.latitude,
+            longitude: academySettings.longitude,
+            radiusMeters: academySettings.radiusMeters,
+            address: academySettings.academyAddress,
+            shiftStartTime: academySettings.shiftStartTime,
+            shiftEndTime: academySettings.shiftEndTime,
+            gracePeriodMinutes: academySettings.gracePeriodMinutes,
+          },
+    [assignedLocation, academySettings]
+  );
+
   const checkInWindowOpen = isManagerCheckInWindowOpen(
     new Date(),
-    academySettings.shiftStartTime,
-    academySettings.gracePeriodMinutes
+    geofence.shiftStartTime,
+    geofence.gracePeriodMinutes
   );
   const [view, setView] = useState<ManagerView>(isAdminView ? 'month' : 'today');
   const [selectedDate, setSelectedDate] = useState<string>(today);
@@ -225,14 +263,14 @@ export default function ManagerCheckIn({
     const distance = calculateHaversineDistance(
       position.latitude,
       position.longitude,
-      academySettings.latitude,
-      academySettings.longitude
+      geofence.latitude,
+      geofence.longitude
     );
     setLastDistance(distance);
-    const verifiedGPS = distance <= academySettings.radiusMeters;
+    const verifiedGPS = distance <= geofence.radiusMeters;
     if (!verifiedGPS) {
       throw new Error(
-        `You are ${distance}m from the academy (allowed radius: ${academySettings.radiusMeters}m). Move closer to check in.`
+        `You are ${distance}m from the check-in location (allowed radius: ${geofence.radiusMeters}m). Move closer to check in.`
       );
     }
     return { position, distance, verifiedGPS };
@@ -260,15 +298,15 @@ export default function ManagerCheckIn({
       const now = new Date();
       const status = evaluateManagerCheckInTime(
         now,
-        academySettings.shiftStartTime,
-        academySettings.gracePeriodMinutes
+        geofence.shiftStartTime,
+        geofence.gracePeriodMinutes
       );
       if (status === 'Late') {
         const cutoffMinutes =
-          (parseClockTimeToMinutes(academySettings.shiftStartTime) ?? 0) +
-          academySettings.gracePeriodMinutes;
+          (parseClockTimeToMinutes(geofence.shiftStartTime) ?? 0) +
+          geofence.gracePeriodMinutes;
         throw new Error(
-          `Check-in window closed. Check-ins are allowed until ${minutesToClockLabel(cutoffMinutes)} (${academySettings.gracePeriodMinutes} min past ${academySettings.shiftStartTime}). Late attendance cannot be saved.`
+          `Check-in window closed. Check-ins are allowed until ${minutesToClockLabel(cutoffMinutes)} (${geofence.gracePeriodMinutes} min past ${geofence.shiftStartTime}). Late attendance cannot be saved.`
         );
       }
       const record = await apiManagerCheckIn({
@@ -396,7 +434,7 @@ export default function ManagerCheckIn({
           <p className="font-sans text-xs text-gray-400 mt-1">
             {isAdminView
               ? 'Weekly and monthly manager attendance with personal calendars and PDF export.'
-              : `Check in within ${academySettings.radiusMeters}m of ${academySettings.academyAddress}. Review history and export reports.`}
+              : `Check in within ${geofence.radiusMeters}m of ${geofence.address}. Review history and export reports.`}
           </p>
         </div>
         <div className="flex bg-brand-charcoal border border-brand-border p-1 rounded-xs gap-1 self-start max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -534,9 +572,9 @@ export default function ManagerCheckIn({
                 Academy Pin
               </div>
               <p className="font-mono text-[11px] text-gray-300">
-                {academySettings.latitude.toFixed(5)}, {academySettings.longitude.toFixed(5)}
+                {geofence.latitude.toFixed(5)}, {geofence.longitude.toFixed(5)}
               </p>
-              <p className="font-sans text-[10px] text-gray-500 mt-1">{academySettings.academyAddress}</p>
+              <p className="font-sans text-[10px] text-gray-500 mt-1">{geofence.address}</p>
             </div>
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-4">
               <div className="flex items-center gap-2 text-brand-gold text-xs font-bold uppercase tracking-wider mb-2">
@@ -544,10 +582,10 @@ export default function ManagerCheckIn({
                 Shift Window
               </div>
               <p className="font-mono text-[11px] text-gray-300">
-                {academySettings.shiftStartTime} – {academySettings.shiftEndTime}
+                {geofence.shiftStartTime} – {geofence.shiftEndTime}
               </p>
               <p className="font-sans text-[10px] text-gray-500 mt-1">
-                Grace period: {academySettings.gracePeriodMinutes} minutes
+                Grace period: {geofence.gracePeriodMinutes} minutes
               </p>
             </div>
             <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-4">
@@ -608,8 +646,8 @@ export default function ManagerCheckIn({
               <AlertCircle className="h-4 w-4 shrink-0" />
               The check-in window has closed (grace period ended at{' '}
               {minutesToClockLabel(
-                (parseClockTimeToMinutes(academySettings.shiftStartTime) ?? 0) +
-                  academySettings.gracePeriodMinutes
+                (parseClockTimeToMinutes(geofence.shiftStartTime) ?? 0) +
+                  geofence.gracePeriodMinutes
               )}
               ). Late attendance cannot be saved.
             </div>

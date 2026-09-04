@@ -6,11 +6,13 @@ import {
   UserPlus, Lock, KeyRound, Eye, EyeOff, Users, MapPin, SlidersHorizontal, Code2, FlaskConical
 } from 'lucide-react';
 import {
+  AcademyLocation,
   AcademyLocationAndTiming,
   DEFAULT_ACADEMY_SETTINGS,
   DEFAULT_MANAGER_PERMISSIONS,
   FilmCourse,
   ManagerPermissions,
+  ManagerLocationAssignment,
 } from '../types';
 import {
   apiChangeUserPassword,
@@ -22,6 +24,12 @@ import {
   apiFetchAutoDebitTestState,
   apiRunAutoDebitTestAction,
   apiUpdateStaffProfile,
+  apiFetchLocations,
+  apiAddLocation,
+  apiUpdateLocation,
+  apiDeleteLocation,
+  apiFetchManagerAssignments,
+  apiSaveManagerAssignments,
   type AutoDebitTestState,
 } from '../services/apiClient';
 import ProfilePicUpload from './ProfilePicUpload';
@@ -246,6 +254,24 @@ export default function Settings({
   const [isSavingAcademy, setIsSavingAcademy] = useState(false);
   const [isReadingGps, setIsReadingGps] = useState(false);
 
+  // Locations (check-in locations registry)
+  const [locations, setLocations] = useState<AcademyLocation[]>([]);
+  const [managerAssignments, setManagerAssignments] = useState<ManagerLocationAssignment>({});
+  const [locationDrafts, setLocationDrafts] = useState<Record<string, Partial<AcademyLocation>>>({});
+  const [newLocation, setNewLocation] = useState<Partial<AcademyLocation>>({
+    name: '',
+    address: '',
+    latitude: 0,
+    longitude: 0,
+    radiusMeters: 200,
+    shiftStartTime: '09:00',
+    shiftEndTime: '17:00',
+    gracePeriodMinutes: 15,
+  });
+  const [isSavingLocations, setIsSavingLocations] = useState(false);
+  const [locationsError, setLocationsError] = useState('');
+  const [locationsSuccess, setLocationsSuccess] = useState('');
+
   // Change Password State
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -265,6 +291,16 @@ export default function Settings({
         const message = err instanceof Error ? err.message : 'Failed to load staff accounts';
         setAddAdminError(message);
       });
+  }, []);
+
+  // Load check-in locations and manager location assignments
+  useEffect(() => {
+    apiFetchLocations()
+      .then(setLocations)
+      .catch(() => setLocations([]));
+    apiFetchManagerAssignments()
+      .then(setManagerAssignments)
+      .catch(() => setManagerAssignments({}));
   }, []);
 
   useEffect(() => {
@@ -1474,6 +1510,378 @@ export default function Settings({
                     Save Location & Timing
                   </button>
                 </form>
+              </div>
+            </div>
+
+            {/* Full-width: Check-In Locations + Manager Location Assignments */}
+            <div className="lg:col-span-12 pt-4 border-t border-brand-border/40 space-y-4">
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4.5 w-4.5 text-brand-gold" />
+                <h3 className="font-sans text-sm font-extrabold text-white uppercase tracking-wider">
+                  Check-In Locations & Manager Assignments
+                </h3>
+              </div>
+              <p className="text-xs text-gray-400">
+                Define named check-in locations (GPS pin, radius, shift rules). Assign each manager to a location — the manager's GPS check-in will validate against that site's geofence instead of the global academy settings.
+              </p>
+              {locationsError && (
+                <div className="flex items-center gap-1.5 text-brand-cinnabar font-mono text-[10px]">
+                  <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                  <span>{locationsError}</span>
+                </div>
+              )}
+              {locationsSuccess && (
+                <div className="flex items-center gap-1.5 text-brand-emerald font-mono text-[10px]">
+                  <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
+                  <span>{locationsSuccess}</span>
+                </div>
+              )}
+
+              {/* Existing locations */}
+              {locations.length > 0 && (
+                <div className="space-y-3">
+                  {locations.map((loc) => {
+                    const draft = locationDrafts[loc.id] || {};
+                    const merged: AcademyLocation = { ...loc, ...draft };
+                    const hasChanges = draft.name !== undefined || draft.address !== undefined || draft.latitude !== undefined || draft.longitude !== undefined || draft.radiusMeters !== undefined || draft.shiftStartTime !== undefined || draft.shiftEndTime !== undefined || draft.gracePeriodMinutes !== undefined;
+                    return (
+                      <div key={loc.id} className="bg-brand-surface-raised border border-brand-border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-white">{loc.name}</span>
+                          <div className="flex items-center gap-2">
+                            {hasChanges && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setLocationDrafts((prev) => { const next = { ...prev }; delete next[loc.id]; return next; });
+                                  setLocationsError(''); setLocationsSuccess('');
+                                }}
+                                className="text-[10px] font-mono text-gray-400 hover:text-white cursor-pointer"
+                              >
+                                Reset
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setLocationsError(''); setLocationsSuccess('');
+                                try {
+                                  await apiDeleteLocation(loc.id);
+                                  const updated = await apiFetchLocations();
+                                  setLocations(updated);
+                                  setLocationDrafts((prev) => { const next = { ...prev }; delete next[loc.id]; return next; });
+                                  // Also unassign any managers assigned to this location
+                                  const affected = Object.entries(managerAssignments)
+                                    .filter(([, v]) => v === loc.id)
+                                    .map(([k]) => k);
+                                  const newAssign = Object.fromEntries(
+                                    Object.entries(managerAssignments).filter(([, v]) => v !== loc.id)
+                                  );
+                                  await apiSaveManagerAssignments(newAssign);
+                                  setManagerAssignments(newAssign);
+                                  for (const email of affected) {
+                                    try {
+                                      await apiUpdateStaffProfile({ email, assignedLocationId: undefined });
+                                    } catch {
+                                      // User record sync is best-effort
+                                    }
+                                  }
+                                  setLocationsSuccess('Location deleted.');
+                                  setTimeout(() => setLocationsSuccess(''), 3000);
+                                } catch (err: unknown) {
+                                  setLocationsError(err instanceof Error ? err.message : 'Failed to delete location');
+                                }
+                              }}
+                              className="text-brand-cinnabar hover:text-red-400 cursor-pointer"
+                              aria-label="Delete location"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Name</label>
+                            <input
+                              type="text"
+                              value={merged.name}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], name: e.target.value } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Address</label>
+                            <input
+                              type="text"
+                              value={merged.address}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], address: e.target.value } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Latitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={merged.latitude}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], latitude: Number(e.target.value) } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Longitude</label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={merged.longitude}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], longitude: Number(e.target.value) } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Radius (m)</label>
+                            <input
+                              type="number"
+                              min="1"
+                              value={merged.radiusMeters}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], radiusMeters: Number(e.target.value) } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Grace (min)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={merged.gracePeriodMinutes}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], gracePeriodMinutes: Number(e.target.value) } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Shift Start</label>
+                            <input
+                              type="time"
+                              value={merged.shiftStartTime}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], shiftStartTime: e.target.value } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-gray-500 mb-0.5">Shift End</label>
+                            <input
+                              type="time"
+                              value={merged.shiftEndTime}
+                              onChange={(e) => setLocationDrafts((prev) => ({ ...prev, [loc.id]: { ...prev[loc.id], shiftEndTime: e.target.value } }))}
+                              className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                            />
+                          </div>
+                        </div>
+                        {hasChanges && (
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setLocationsError(''); setLocationsSuccess(''); setIsSavingLocations(true);
+                              try {
+                                const next: AcademyLocation = {
+                                  id: loc.id,
+                                  name: (merged.name || '').trim(),
+                                  address: (merged.address || '').trim(),
+                                  latitude: Number(merged.latitude),
+                                  longitude: Number(merged.longitude),
+                                  radiusMeters: Number(merged.radiusMeters),
+                                  gracePeriodMinutes: Number(merged.gracePeriodMinutes),
+                                  shiftStartTime: merged.shiftStartTime || '09:00',
+                                  shiftEndTime: merged.shiftEndTime || '17:00',
+                                };
+                                if (!next.name) throw new Error('Location name is required');
+                                if (Number.isNaN(next.latitude) || Number.isNaN(next.longitude)) throw new Error('Valid GPS coordinates required');
+                                if (!(next.radiusMeters > 0)) throw new Error('Radius must be positive');
+                                await apiUpdateLocation(next);
+                                const updated = await apiFetchLocations();
+                                setLocations(updated);
+                                setLocationDrafts((prev) => { const n = { ...prev }; delete n[loc.id]; return n; });
+                                setLocationsSuccess('Location updated.');
+                                setTimeout(() => setLocationsSuccess(''), 3000);
+                              } catch (err: unknown) {
+                                setLocationsError(err instanceof Error ? err.message : 'Failed to update location');
+                              } finally {
+                                setIsSavingLocations(false);
+                              }
+                            }}
+                            disabled={isSavingLocations}
+                            className="px-3 py-1.5 text-[10px] font-bold bg-brand-gold text-black rounded-xs hover:bg-brand-gold-bright disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                          >
+                            {isSavingLocations ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                            Save Changes
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Add new location */}
+              <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-4 space-y-3">
+                <p className="text-xs font-bold text-gray-300">Add New Location</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-[11px]">
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Name</label>
+                    <input
+                      type="text"
+                      value={newLocation.name || ''}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, name: e.target.value }))}
+                      placeholder="e.g. North Campus"
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold placeholder:text-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Address</label>
+                    <input
+                      type="text"
+                      value={newLocation.address || ''}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, address: e.target.value }))}
+                      placeholder="Street address"
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold placeholder:text-gray-600"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Latitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={newLocation.latitude || 0}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, latitude: Number(e.target.value) }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Longitude</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={newLocation.longitude || 0}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, longitude: Number(e.target.value) }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Radius (m)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={newLocation.radiusMeters || 200}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, radiusMeters: Number(e.target.value) }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Grace (min)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={newLocation.gracePeriodMinutes ?? 15}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, gracePeriodMinutes: Number(e.target.value) }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Shift Start</label>
+                    <input
+                      type="time"
+                      value={newLocation.shiftStartTime || '09:00'}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, shiftStartTime: e.target.value }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-500 mb-0.5">Shift End</label>
+                    <input
+                      type="time"
+                      value={newLocation.shiftEndTime || '17:00'}
+                      onChange={(e) => setNewLocation((prev) => ({ ...prev, shiftEndTime: e.target.value }))}
+                      className="w-full bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setLocationsError(''); setLocationsSuccess('');
+                    try {
+                      const loc: Omit<AcademyLocation, 'id'> = {
+                        name: (newLocation.name || '').trim(),
+                        address: (newLocation.address || '').trim(),
+                        latitude: Number(newLocation.latitude),
+                        longitude: Number(newLocation.longitude),
+                        radiusMeters: Number(newLocation.radiusMeters),
+                        gracePeriodMinutes: Number(newLocation.gracePeriodMinutes),
+                        shiftStartTime: newLocation.shiftStartTime || '09:00',
+                        shiftEndTime: newLocation.shiftEndTime || '17:00',
+                      };
+                      if (!loc.name) throw new Error('Location name is required');
+                      if (Number.isNaN(loc.latitude) || Number.isNaN(loc.longitude)) throw new Error('Valid GPS coordinates required');
+                      if (!(loc.radiusMeters > 0)) throw new Error('Radius must be positive');
+                      await apiAddLocation(loc);
+                      const updated = await apiFetchLocations();
+                      setLocations(updated);
+                      setNewLocation({ name: '', address: '', latitude: 0, longitude: 0, radiusMeters: 200, shiftStartTime: '09:00', shiftEndTime: '17:00', gracePeriodMinutes: 15 });
+                      setLocationsSuccess('Location added.');
+                      setTimeout(() => setLocationsSuccess(''), 3000);
+                    } catch (err: unknown) {
+                      setLocationsError(err instanceof Error ? err.message : 'Failed to add location');
+                    }
+                  }}
+                  disabled={isSavingLocations}
+                  className="px-3 py-1.5 text-[10px] font-bold bg-brand-gold text-black rounded-xs hover:bg-brand-gold-bright disabled:opacity-50 cursor-pointer flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  Add Location
+                </button>
+              </div>
+
+              {/* Manager → Location Assignments */}
+              <div className="bg-brand-surface-raised border border-brand-border rounded-lg p-4 space-y-3">
+                <p className="text-xs font-bold text-gray-300">Manager → Location Assignments</p>
+                <p className="text-[11px] text-gray-500">
+                  Assign each manager to a check-in location. Managers with no assignment fall back to the global academy settings above.
+                </p>
+                {managerUsers.length === 0 ? (
+                  <p className="text-[11px] text-gray-500 italic">No managers registered yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {managerUsers.map((mgr) => (
+                      <div key={mgr.email} className="flex items-center gap-3 text-[11px]">
+                        <span className="font-mono text-gray-300 min-w-[200px] truncate">{mgr.name || mgr.email}</span>
+                        <select
+                          value={managerAssignments[mgr.email.toLowerCase()] || ''}
+                          onChange={async (e) => {
+                            const nextVal = e.target.value;
+                            const next = { ...managerAssignments, [mgr.email.toLowerCase()]: nextVal };
+                            if (!nextVal) delete next[mgr.email.toLowerCase()];
+                            setManagerAssignments(next);
+                            try {
+                              await apiSaveManagerAssignments(next);
+                              await apiUpdateStaffProfile({
+                                email: mgr.email,
+                                assignedLocationId: nextVal || undefined,
+                              });
+                            } catch (err: unknown) {
+                              setLocationsError(err instanceof Error ? err.message : 'Failed to save assignment');
+                            }
+                          }}
+                          className="flex-1 bg-brand-charcoal border border-brand-border text-white p-2 rounded-xs focus:outline-hidden focus:border-brand-gold max-w-[300px]"
+                        >
+                          <option value="">Unassigned (uses global academy settings)</option>
+                          {locations.map((loc) => (
+                            <option key={loc.id} value={loc.id}>{loc.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>

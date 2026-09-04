@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { verifySessionToken, SESSION_COOKIE_NAME } from '@/lib/session';
+import { getManagerLocationAssignments } from '@/services/settingsService';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
 export async function GET(req: NextRequest) {
@@ -8,6 +9,11 @@ export async function GET(req: NextRequest) {
     const session = verifySessionToken(token);
     if (!session) {
       return errorResponse('Not authenticated', 401);
+    }
+    let assignedLocationId = session.assignedLocationId;
+    if (session.role === 'manager') {
+      const assignments = await getManagerLocationAssignments();
+      assignedLocationId = assignments[session.email] || assignedLocationId;
     }
     return successResponse(
       {
@@ -18,6 +24,7 @@ export async function GET(req: NextRequest) {
         studentName: session.studentName,
         parentLoginId: session.parentLoginId,
         assignedBatch: session.assignedBatch,
+        assignedLocationId,
       },
       'Session active'
     );

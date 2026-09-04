@@ -32,6 +32,11 @@ export async function PUT(req: NextRequest) {
         auth.user.role === 'admin' && typeof body.assignedBatch === 'string'
           ? body.assignedBatch
           : undefined,
+      // Only admins may change a manager's check-in location assignment.
+      assignedLocationId:
+        auth.user.role === 'admin' && typeof body.assignedLocationId === 'string'
+          ? body.assignedLocationId
+          : undefined,
     });
     return successResponse(account, 'Profile updated successfully');
   } catch (err: unknown) {

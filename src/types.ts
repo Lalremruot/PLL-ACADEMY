@@ -153,6 +153,28 @@ export const DEFAULT_ACADEMY_SETTINGS: AcademyLocationAndTiming = {
   academyAddress: 'Metropolis Sports Arena, Main Ground Gate 1',
 };
 
+/**
+ * A named check-in location a manager can be assigned to. Each location carries
+ * its own geofence (GPS centre + radius), physical address, and shift window.
+ */
+export interface AcademyLocation {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+  shiftStartTime: string; // HH:mm
+  shiftEndTime: string; // HH:mm
+  gracePeriodMinutes: number;
+}
+
+/** Maps a manager's email to the id of the AcademyLocation they check in at. */
+export type ManagerLocationAssignment = Record<string, string>;
+
+export const DEFAULT_LOCATIONS_KEY = 'locations';
+export const DEFAULT_MANAGER_ASSIGNMENT_KEY = 'manager_location_assignments';
+
 export type AttendanceStatus = 'Present' | 'Late' | 'Absent' | 'Excused';
 
 export interface StudentAttendanceRecord {

@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Trophy, LogOut, CalendarCheck, Navigation, Sun, Moon
+  LogOut, CalendarCheck, Navigation, Sun, Moon
 } from 'lucide-react';
 
 import {
@@ -19,6 +19,7 @@ import {
   UserRole,
   ManagerPermissions,
   AcademyLocationAndTiming,
+  AcademyLocation,
   DEFAULT_MANAGER_PERMISSIONS,
   DEFAULT_ACADEMY_SETTINGS,
 } from './types';
@@ -54,6 +55,8 @@ import {
   apiUpdateManagerPermissions,
   apiFetchAcademySettings,
   apiUpdateAcademySettings,
+  apiFetchLocations,
+  apiFetchManagerAssignments,
   apiFetchMe,
   apiLogout,
 } from './services/apiClient';
@@ -75,6 +78,7 @@ interface SessionUser {
   studentName?: string;
   parentLoginId?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }
 
 /**
@@ -95,6 +99,8 @@ export default function App() {
   const [isAuthReady, setIsAuthReady] = useState<boolean>(false);
   const [managerPermissions, setManagerPermissions] = useState<ManagerPermissions>(DEFAULT_MANAGER_PERMISSIONS);
   const [academySettings, setAcademySettings] = useState<AcademyLocationAndTiming>(DEFAULT_ACADEMY_SETTINGS);
+  const [locations, setLocations] = useState<AcademyLocation[]>([]);
+  const [managerAssignments, setManagerAssignments] = useState<Record<string, string>>({});
 
   useEffect(() => {
     apiFetchMe()
@@ -130,13 +136,15 @@ export default function App() {
   const loadAllData = async (): Promise<void> => {
     try {
       setLoading(true);
-      const [invData, subData, courseData, batchData, permData, academyData] = await Promise.all([
+      const [invData, subData, courseData, batchData, permData, academyData, locData, assignData] = await Promise.all([
         apiFetchInvoices(),
         apiFetchSubscriptions(),
         apiFetchCourses(),
         apiFetchBatches(),
         apiFetchManagerPermissions().catch(() => DEFAULT_MANAGER_PERMISSIONS),
         apiFetchAcademySettings().catch(() => DEFAULT_ACADEMY_SETTINGS),
+        apiFetchLocations().catch(() => []),
+        apiFetchManagerAssignments().catch(() => ({})),
       ]);
       setInvoices(invData);
       setSubscriptions(subData);
@@ -144,6 +152,8 @@ export default function App() {
       setBatches(batchData);
       setManagerPermissions(permData);
       setAcademySettings(academyData);
+      setLocations(locData);
+      setManagerAssignments(assignData);
     } catch (err) {
       console.error('Failed to load data from API routes:', err);
       setInvoices(INITIAL_INVOICES);
@@ -392,7 +402,8 @@ export default function App() {
   }
 
   if (!loggedInUser) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    const parentOnly = typeof window !== 'undefined' && window.location.pathname === '/parent-login';
+    return <Login onLoginSuccess={handleLoginSuccess} parentOnly={parentOnly} />;
   }
 
   const renderTabButton = (tab: ConsoleTab, label: string): React.ReactNode => (
@@ -415,9 +426,11 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-brand-border bg-brand-bg/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xs bg-brand-blue text-black shadow-md shadow-brand-blue/10">
-              <Trophy className="h-5 w-5" />
-            </div>
+            <img
+              src="/pll-logo.png"
+              alt="PLL Academy"
+              className="h-9 w-9 object-contain rounded-xs"
+            />
             <div>
               <span className="font-sans text-sm font-bold uppercase tracking-wider text-white">
                 PLL Academy
@@ -583,6 +596,11 @@ export default function App() {
                   managerEmail={loggedInUser.email}
                   academySettings={academySettings}
                   canCheckIn={canManagerCheckIn}
+                  locations={locations}
+                  assignedLocationId={
+                    managerAssignments[loggedInUser.email.toLowerCase()] ||
+                    loggedInUser.assignedLocationId
+                  }
                 />
               )}
 
@@ -592,6 +610,7 @@ export default function App() {
                   academySettings={academySettings}
                   canCheckIn={false}
                   isAdminView
+                  locations={locations}
                 />
               )}
 

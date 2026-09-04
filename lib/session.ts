@@ -14,6 +14,8 @@ export interface SessionPayload {
   parentLoginId?: string;
   /** Set for manager sessions — scopes the manager to one batch */
   assignedBatch?: string;
+  /** Set for manager sessions — the location id the manager checks in at */
+  assignedLocationId?: string;
   exp: number;
 }
 
@@ -40,6 +42,7 @@ export function createSessionToken(input: {
   studentName?: string;
   parentLoginId?: string;
   assignedBatch?: string;
+  assignedLocationId?: string;
 }): string {
   const body: SessionPayload = { ...input, exp: Date.now() + SESSION_TTL_MS };
   const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
