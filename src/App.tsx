@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  Trophy, RotateCcw, LogOut, CalendarCheck, Navigation, Sun, Moon
+  Trophy, LogOut, CalendarCheck, Navigation, Sun, Moon
 } from 'lucide-react';
 
 import {
@@ -276,30 +276,6 @@ export default function App() {
     }
   };
 
-  const handleResetLedger = async (): Promise<void> => {
-    try {
-      await fetch('/api/seed', { method: 'POST' });
-      const [invData, subData, courseData, batchData, permData, academyData] = await Promise.all([
-        apiFetchInvoices(),
-        apiFetchSubscriptions(),
-        apiFetchCourses(),
-        apiFetchBatches(),
-        apiFetchManagerPermissions(),
-        apiFetchAcademySettings(),
-      ]);
-      setInvoices(invData);
-      setSubscriptions(subData);
-      setCourses(courseData);
-      setBatches(batchData);
-      setManagerPermissions(permData);
-      setAcademySettings(academyData);
-    } catch {
-      saveState(INITIAL_INVOICES, INITIAL_SUBSCRIPTIONS);
-    }
-    setSelectedInvoice(null);
-    setSelectedSubscription(null);
-  };
-
   const handleAddInvoice = (newInvoiceData: Omit<Invoice, 'id'>): void => {
     const nextId = `INV-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
     const newInvoice: Invoice = { ...newInvoiceData, id: nextId };
@@ -550,28 +526,16 @@ export default function App() {
                   {canManagerCheckIn && renderTabButton('managerCheckIn', 'My Check-In')}
                   {canViewManagerLog && renderTabButton('managerLog', 'Manager Log')}
                   {canAccessReports && renderTabButton('reports', 'Financial Reports')}
-                  {canOpenSettings && renderTabButton('settings', 'Settings')}
+{canOpenSettings && renderTabButton('settings', 'Settings')}
                 </div>
 
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={handleResetLedger}
-                    className="shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-mono text-gray-400 hover:text-brand-cinnabar hover:bg-brand-cinnabar/10 border border-brand-border hover:border-brand-cinnabar/40 rounded-xs transition-all cursor-pointer"
-                    title="Reset to default seed state"
-                  >
-                    <RotateCcw className="h-3.5 w-3.5" />
-                    <span>Reset Seed Data</span>
-                  </button>
-                )}
-              </div>
-
-              {loading && (
+                {loading && (
                 <div className="text-xs font-mono text-gray-500 flex items-center gap-2">
                   <CalendarCheck className="h-3.5 w-3.5" />
                   Syncing academy data...
                 </div>
               )}
+              </div>
 
               {adminTab === 'ledger' && canViewLedger && (
                 <AdminDashboard
