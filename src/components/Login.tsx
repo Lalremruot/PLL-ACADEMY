@@ -16,6 +16,8 @@ interface LoginProps {
     studentName?: string;
     parentLoginId?: string;
   }) => void;
+  /** When true, hides the role tabs and shows only the passwordless parent login. */
+  parentOnly?: boolean;
 }
 
 /**
@@ -23,8 +25,8 @@ interface LoginProps {
  * credentials are provisioned by the system (the primary admin ships via
  * environment variables); parents sign in passwordlessly with their issued ID.
  */
-export default function Login({ onLoginSuccess }: LoginProps) {
-  const [activeTab, setActiveTab] = useState<UserRole>('admin');
+export default function Login({ onLoginSuccess, parentOnly = false }: LoginProps) {
+  const [activeTab, setActiveTab] = useState<UserRole>(parentOnly ? 'parent' : 'admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [parentLoginId, setParentLoginId] = useState('');
@@ -137,26 +139,28 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </p>
         </div>
 
-        <div className="flex bg-brand-surface-raised p-1 border border-brand-border rounded-xs mb-6">
-          {(['admin', 'manager', 'parent'] as UserRole[]).map((role) => (
-            <button
-              key={role}
-              type="button"
-              onClick={() => {
-                setActiveTab(role);
-                setErrorMsg('');
-                setSuccessMsg('');
-              }}
-              className={`flex-1 py-2 font-sans text-[10px] sm:text-xs font-bold rounded-xs transition-all cursor-pointer ${
-                activeTab === role
-                  ? 'bg-brand-blue text-black shadow-sm'
-                  : 'text-gray-400 hover:text-white'
-              }`}
-            >
-              {tabLabel(role)}
-            </button>
-          ))}
-        </div>
+        {!parentOnly && (
+          <div className="flex bg-brand-surface-raised p-1 border border-brand-border rounded-xs mb-6">
+            {(['admin', 'manager', 'parent'] as UserRole[]).map((role) => (
+              <button
+                key={role}
+                type="button"
+                onClick={() => {
+                  setActiveTab(role);
+                  setErrorMsg('');
+                  setSuccessMsg('');
+                }}
+                className={`flex-1 py-2 font-sans text-[10px] sm:text-xs font-bold rounded-xs transition-all cursor-pointer ${
+                  activeTab === role
+                    ? 'bg-brand-blue text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white'
+                }`}
+              >
+                {tabLabel(role)}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="bg-brand-surface-raised/80 border border-brand-border rounded-lg p-6 backdrop-blur-xl shadow-2xl relative overflow-hidden">
           <header className="mb-6">

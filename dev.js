@@ -7,7 +7,6 @@ const cleanArgs = [];
 
 let port = '3000';
 let hostname = '0.0.0.0';
-let turbo = false;
 
 for (let i = 0; i < rawArgs.length; i++) {
   const arg = rawArgs[i];
@@ -27,16 +26,12 @@ for (let i = 0; i < rawArgs.length; i++) {
     }
   } else if (arg.startsWith('--port=') || arg.startsWith('-p=')) {
     port = arg.split('=')[1] || '3000';
-  } else if (arg === '--turbo') {
-    turbo = true;
   }
 }
 
 cleanArgs.push('-p', port);
 cleanArgs.push('-H', hostname);
-if (turbo) {
-  cleanArgs.push('--turbo');
-}
+cleanArgs.push('--webpack');
 
 const require = createRequire(import.meta.url);
 let nextBin;
