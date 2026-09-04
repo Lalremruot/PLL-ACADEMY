@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import {
-  Trophy, Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2, AlertCircle, RefreshCw, KeyRound, ShieldCheck
+  Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2, AlertCircle, RefreshCw, KeyRound, ShieldCheck
 } from 'lucide-react';
 import type { UserRole } from '../types';
 import { apiLogin, apiLoginParent } from '../services/apiClient';
@@ -124,9 +124,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
       <main className="relative z-10 w-full max-w-md px-4 sm:px-6 py-8 sm:py-12 mx-auto">
         <div className="flex flex-col items-center mb-8 text-center">
-          <div className="w-14 h-14 bg-brand-blue flex items-center justify-center rounded-sm mb-4 shadow-lg shadow-brand-blue/10">
-            <Trophy className="h-7 w-7 text-black shrink-0" />
-          </div>
+          <img
+            src="/pll-logo.png"
+            alt="PLL Academy logo"
+            className="w-16 h-16 object-contain drop-shadow-[0_1px_0_rgba(0,0,0,0.35)]"
+          />
           <h1 className="font-sans text-2xl font-extrabold text-white tracking-tight">
             PLL Academy
           </h1>
