@@ -342,15 +342,28 @@ export async function apiRunAutoDebitTestAction(
   return data.message as string;
 }
 
-export async function apiUpdateInvoices(invoices: Invoice[]): Promise<Invoice[]> {
+export async function apiCreateInvoice(invoice: Omit<Invoice, 'id'>): Promise<Invoice> {
   const res = await fetch('/api/invoices', {
-    method: 'PUT',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(invoices),
+    body: JSON.stringify(invoice),
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to update invoices');
+    throw new Error(data.error || 'Failed to create invoice');
+  }
+  return data.data;
+}
+
+export async function apiDeleteInvoice(id: string): Promise<{ id: string }> {
+  const res = await fetch('/api/invoices', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to delete invoice');
   }
   return data.data;
 }
@@ -390,15 +403,28 @@ export async function apiUpdateSubscriptionStatus(subId: string, newStatus: 'Act
   return data.data;
 }
 
-export async function apiUpdateAllSubscriptions(subscriptions: Subscription[]): Promise<Subscription[]> {
+export async function apiCreateSubscription(subscription: Omit<Subscription, 'id'>): Promise<Subscription> {
   const res = await fetch('/api/subscriptions', {
-    method: 'PUT',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(subscriptions),
+    body: JSON.stringify(subscription),
   });
   const data = await res.json();
   if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to update subscriptions');
+    throw new Error(data.error || 'Failed to create subscription');
+  }
+  return data.data;
+}
+
+export async function apiDeleteSubscription(id: string): Promise<{ id: string }> {
+  const res = await fetch('/api/subscriptions', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ id }),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Failed to delete subscription');
   }
   return data.data;
 }

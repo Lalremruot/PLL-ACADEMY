@@ -85,7 +85,11 @@ export async function settleSubscriptionCycle(
     await payInvoice(invoiceId, paymentId);
   }
 
-  const nextBillingDate = addMonths(sub.nextBillingDate, 1);
+  // A payment settles the month it was made in, so the next billing date is
+  // one month from today — not one month from the PREVIOUS billing date.
+  // Advancing from the old date compounded any prior drift into a multi-month
+  // gap (paying 12 Sep must set the next charge on 12 Oct, never in Nov/Dec).
+  const nextBillingDate = addMonths(todayKey(), 1);
   const updated = await updateSubscription({
     ...sub,
     nextBillingDate,

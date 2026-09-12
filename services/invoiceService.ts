@@ -5,9 +5,24 @@ import { Invoice } from '@/src/types';
 
 let memoryInvoices: Invoice[] = [...INITIAL_INVOICES];
 
+/**
+ * Writes any in-memory fallback records into Mongo once it is reachable again.
+ * The memory store is only used while Mongo is down, so an upsert-by-id merge
+ * can never duplicate or discard existing documents.
+ */
+async function flushPendingInvoices(): Promise<void> {
+  if (memoryInvoices.length === 0) return;
+  const pending = memoryInvoices;
+  memoryInvoices = [];
+  for (const inv of pending) {
+    await InvoiceModel.updateOne({ id: inv.id }, { $set: inv }, { upsert: true });
+  }
+}
+
 export async function getAllInvoices(): Promise<Invoice[]> {
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingInvoices();
     const count = await InvoiceModel.countDocuments();
     if (count === 0) {
       await InvoiceModel.insertMany(INITIAL_INVOICES);
@@ -48,6 +63,7 @@ export async function createInvoice(invoiceData: Partial<Invoice>): Promise<Invo
 
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingInvoices();
     await InvoiceModel.create(newInvoice);
   } else {
     memoryInvoices.unshift(newInvoice);
@@ -61,6 +77,7 @@ export async function payInvoice(invoiceId: string, transactionId?: string): Pro
 
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingInvoices();
     const updated = await InvoiceModel.findOneAndUpdate(
       { id: invoiceId },
       { $set: { status: 'Success', transactionId: txnId } },
@@ -95,14 +112,49 @@ export async function payInvoice(invoiceId: string, transactionId?: string): Pro
   return memoryInvoices[index];
 }
 
+/**
+ * Synchronizes a client-supplied list of invoices.
+ *
+ * This deliberately does NOT wipe the collection first — a stale or truncated
+ * client list must never silently destroy invoices the server knows about.
+ * Each record is upserted by id instead; deletions go through deleteInvoice().
+ */
 export async function updateInvoices(invoices: Invoice[]): Promise<Invoice[]> {
   const db = await connectToDatabase();
   if (db) {
-    await InvoiceModel.deleteMany({});
-    await InvoiceModel.insertMany(invoices);
+    await flushPendingInvoices();
+    for (const inv of invoices) {
+      await InvoiceModel.updateOne({ id: inv.id }, { $set: inv }, { upsert: true });
+    }
     return invoices;
   }
 
-  memoryInvoices = [...invoices];
-  return memoryInvoices;
+  // Memory branch: merge, never discard existing records.
+  const seen = new Set<string>();
+  const merged: Invoice[] = [];
+  for (const inv of invoices) {
+    if (seen.has(inv.id)) continue;
+    seen.add(inv.id);
+    merged.push(inv);
+  }
+  for (const inv of memoryInvoices) {
+    if (seen.has(inv.id)) continue;
+    seen.add(inv.id);
+    merged.push(inv);
+  }
+  memoryInvoices = merged;
+  return invoices;
+}
+
+export async function deleteInvoice(invoiceId: string): Promise<boolean> {
+  const db = await connectToDatabase();
+  if (db) {
+    await flushPendingInvoices();
+    const res = await InvoiceModel.deleteOne({ id: invoiceId });
+    return (res.deletedCount ?? 0) > 0;
+  }
+
+  const before = memoryInvoices.length;
+  memoryInvoices = memoryInvoices.filter((inv) => inv.id !== invoiceId);
+  return memoryInvoices.length < before;
 }

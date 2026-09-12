@@ -44,10 +44,12 @@ import {
   apiFetchBatches,
   apiPayInvoice,
   apiVerifyRazorpayPayment,
-  apiUpdateInvoices,
+  apiCreateInvoice,
+  apiDeleteInvoice,
   apiUpdateSubscription,
   apiUpdateSubscriptionStatus,
-  apiUpdateAllSubscriptions,
+  apiCreateSubscription,
+  apiDeleteSubscription,
   apiUpdateCourses,
   apiUpdateBatches,
   apiCreateBatch,
@@ -273,30 +275,33 @@ export default function App() {
     }
   };
 
-  const saveState = async (updatedInvoices: Invoice[], updatedSubs: Subscription[]): Promise<void> => {
-    setInvoices(updatedInvoices);
-    setSubscriptions(updatedSubs);
+  /**
+   * Writes are granular per-record (create/update/delete) so a stale or empty
+   * client list can never wipe the server-side collection the way the old
+   * whole-array PUT could. Optimistic on the client; the server persists to
+   * Mongo and buffers to memory while Mongo is briefly unreachable.
+   */
+  const handleAddInvoice = async (newInvoiceData: Omit<Invoice, 'id'>): Promise<void> => {
+    const nextId = `INV-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
+    const newInvoice: Invoice = { ...newInvoiceData, id: nextId };
+    setInvoices((prev) => [newInvoice, ...prev]);
     try {
-      await Promise.all([
-        apiUpdateInvoices(updatedInvoices),
-        apiUpdateAllSubscriptions(updatedSubs),
-      ]);
+      const created = await apiCreateInvoice(newInvoice);
+      setInvoices((prev) => prev.map((inv) => (inv.id === nextId ? created : inv)));
     } catch (e) {
-      console.error('API save failed:', e);
+      console.error('Failed to persist new invoice:', e);
     }
   };
 
-  const handleAddInvoice = (newInvoiceData: Omit<Invoice, 'id'>): void => {
-    const nextId = `INV-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
-    const newInvoice: Invoice = { ...newInvoiceData, id: nextId };
-    saveState([newInvoice, ...invoices], subscriptions);
-  };
-
-  const handleDeleteInvoice = (id: string): void => {
-    const updatedInvoices = invoices.filter((inv) => inv.id !== id);
-    saveState(updatedInvoices, subscriptions);
+  const handleDeleteInvoice = async (id: string): Promise<void> => {
+    setInvoices((prev) => prev.filter((inv) => inv.id !== id));
     if (selectedInvoice?.id === id) {
       setSelectedInvoice(null);
+    }
+    try {
+      await apiDeleteInvoice(id);
+    } catch (e) {
+      console.error('Failed to delete invoice:', e);
     }
   };
 
@@ -330,46 +335,55 @@ export default function App() {
       if (selectedSubscription?.id === subId) {
         setSelectedSubscription(updatedSub);
       }
-    } catch {
-      const updatedSubs = subscriptions.map((sub) => {
-        if (sub.id === subId) {
+    } catch (e) {
+      console.error('Failed to persist status change:', e);
+      setSubscriptions((prev) =>
+        prev.map((sub) => {
+          if (sub.id !== subId) return sub;
           const updated = { ...sub, status: newStatus };
           if (selectedSubscription?.id === subId) {
             setSelectedSubscription(updated);
           }
           return updated;
-        }
-        return sub;
-      });
-      saveState(invoices, updatedSubs);
+        })
+      );
     }
   };
 
-  const handleAddSubscription = (newSubData: Omit<Subscription, 'id'>): void => {
+  const handleAddSubscription = async (newSubData: Omit<Subscription, 'id'>): Promise<void> => {
     const nextId = `SUB-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
     const newSub: Subscription = { ...newSubData, id: nextId };
-    saveState(invoices, [newSub, ...subscriptions]);
+    setSubscriptions((prev) => [newSub, ...prev]);
+    try {
+      const created = await apiCreateSubscription(newSub);
+      setSubscriptions((prev) => prev.map((sub) => (sub.id === nextId ? created : sub)));
+    } catch (e) {
+      console.error('Failed to persist new subscription:', e);
+    }
   };
 
   const handleUpdateSubscription = async (updatedSub: Subscription): Promise<void> => {
+    setSubscriptions((prev) => prev.map((sub) => (sub.id === updatedSub.id ? updatedSub : sub)));
     try {
       const resSub = await apiUpdateSubscription(updatedSub);
-      const updatedSubs = subscriptions.map((sub) => (sub.id === resSub.id ? resSub : sub));
-      setSubscriptions(updatedSubs);
+      setSubscriptions((prev) => prev.map((sub) => (sub.id === resSub.id ? resSub : sub)));
       if (selectedSubscription?.id === updatedSub.id) {
         setSelectedSubscription(resSub);
       }
-    } catch {
-      const updatedSubs = subscriptions.map((sub) => (sub.id === updatedSub.id ? updatedSub : sub));
-      saveState(invoices, updatedSubs);
+    } catch (e) {
+      console.error('Failed to persist subscription update:', e);
     }
   };
 
-  const handleDeleteSubscription = (id: string): void => {
-    const updatedSubs = subscriptions.filter((sub) => sub.id !== id);
-    saveState(invoices, updatedSubs);
+  const handleDeleteSubscription = async (id: string): Promise<void> => {
+    setSubscriptions((prev) => prev.filter((sub) => sub.id !== id));
     if (selectedSubscription?.id === id) {
       setSelectedSubscription(null);
+    }
+    try {
+      await apiDeleteSubscription(id);
+    } catch (e) {
+      console.error('Failed to delete subscription:', e);
     }
   };
 

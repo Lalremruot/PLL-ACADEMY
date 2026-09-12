@@ -4,7 +4,8 @@ import {
   createSubscription, 
   updateSubscription, 
   updateSubscriptionStatus, 
-  updateAllSubscriptions 
+  updateAllSubscriptions,
+  deleteSubscription 
 } from '@/services/subscriptionService';
 import { requireAuth } from '@/lib/authGuard';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
@@ -103,5 +104,31 @@ export async function PUT(req: NextRequest) {
     return successResponse(updated, 'Subscription updated successfully');
   } catch (err: any) {
     return errorResponse(err.message || 'Failed to update subscription', 500);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = requireAuth(req, ['admin', 'manager']);
+  if ('response' in auth) return auth.response;
+  try {
+    const body = await req.json();
+    const { id } = body;
+    if (!id) {
+      return errorResponse('Subscription id is required', 400);
+    }
+
+    if (auth.user.role === 'manager') {
+      const target = (await getAllSubscriptions()).find((s) => s.id === id);
+      const inBatch = auth.user.assignedBatch && target?.batch === auth.user.assignedBatch;
+      if (!inBatch) {
+        return errorResponse('You do not have permission to manage this subscription.', 403);
+      }
+    }
+
+    const deleted = await deleteSubscription(id);
+    if (!deleted) return errorResponse('Subscription not found', 404);
+    return successResponse({ id }, 'Subscription deleted successfully');
+  } catch (err: any) {
+    return errorResponse(err.message || 'Failed to delete subscription', 500);
   }
 }

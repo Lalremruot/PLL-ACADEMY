@@ -6,6 +6,21 @@ import { generateParentLoginId } from '@/src/utils/parent-login-id';
 
 let memorySubscriptions: Subscription[] = [...INITIAL_SUBSCRIPTIONS];
 
+/**
+ * Writes any in-memory fallback records into Mongo once it is reachable again.
+ * The memory store is only used while Mongo is down, so an upsert-by-id merge
+ * can never duplicate or discard existing documents — it simply catches the
+ * records that were temporarily stranded in process memory.
+ */
+async function flushPendingSubscriptions(): Promise<void> {
+  if (memorySubscriptions.length === 0) return;
+  const pending = memorySubscriptions;
+  memorySubscriptions = [];
+  for (const sub of pending) {
+    await SubscriptionModel.updateOne({ id: sub.id }, { $set: sub }, { upsert: true });
+  }
+}
+
 function mapDoc(doc: Record<string, unknown>): Subscription {
   return {
     id: doc.id as string,
@@ -63,6 +78,7 @@ async function ensureParentLoginIds(subs: Subscription[]): Promise<Subscription[
 export async function getAllSubscriptions(): Promise<Subscription[]> {
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingSubscriptions();
     const count = await SubscriptionModel.countDocuments();
     if (count === 0) {
       await SubscriptionModel.insertMany(INITIAL_SUBSCRIPTIONS);
@@ -80,6 +96,7 @@ export async function getSubscriptionByParentLoginId(parentLoginId: string): Pro
 
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingSubscriptions();
     const doc = await SubscriptionModel.findOne({
       parentLoginId: { $regex: new RegExp(`^${normalized.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
     }).lean();
@@ -124,6 +141,7 @@ export async function createSubscription(subData: Partial<Subscription>): Promis
 
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingSubscriptions();
     await SubscriptionModel.create(newSub);
   } else {
     memorySubscriptions.unshift(newSub);
@@ -135,6 +153,7 @@ export async function createSubscription(subData: Partial<Subscription>): Promis
 export async function updateSubscription(sub: Subscription): Promise<Subscription | null> {
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingSubscriptions();
     const updated = await SubscriptionModel.findOneAndUpdate(
       { id: sub.id },
       { $set: sub },
@@ -157,6 +176,7 @@ export async function updateSubscription(sub: Subscription): Promise<Subscriptio
 export async function updateSubscriptionStatus(subId: string, status: 'Active' | 'Paused' | 'Canceled'): Promise<Subscription | null> {
   const db = await connectToDatabase();
   if (db) {
+    await flushPendingSubscriptions();
     const updated = await SubscriptionModel.findOneAndUpdate(
       { id: subId },
       { $set: { status } },
@@ -178,14 +198,51 @@ export async function updateSubscriptionStatus(subId: string, status: 'Active' |
   return memorySubscriptions[index];
 }
 
+/**
+ * Synchronizes a client-supplied list of subscriptions.
+ *
+ * This deliberately does NOT wipe the collection first. A stale or truncated
+ * client list could then silently destroy registry entries the server knows
+ * about (e.g. while a second tab holds an older copy). Instead each record is
+ * upserted by id, so a full re-sync converges without ever deleting data.
+ * Deletions must go through deleteSubscription() explicitly.
+ */
 export async function updateAllSubscriptions(subscriptions: Subscription[]): Promise<Subscription[]> {
   const db = await connectToDatabase();
   if (db) {
-    await SubscriptionModel.deleteMany({});
-    await SubscriptionModel.insertMany(subscriptions);
+    await flushPendingSubscriptions();
+    for (const sub of subscriptions) {
+      await SubscriptionModel.updateOne({ id: sub.id }, { $set: sub }, { upsert: true });
+    }
     return subscriptions;
   }
 
-  memorySubscriptions = [...subscriptions];
-  return memorySubscriptions;
+  // Memory branch: merge, never discard existing records.
+  const seen = new Set<string>();
+  const merged: Subscription[] = [];
+  for (const sub of subscriptions) {
+    if (seen.has(sub.id)) continue;
+    seen.add(sub.id);
+    merged.push(sub);
+  }
+  for (const sub of memorySubscriptions) {
+    if (seen.has(sub.id)) continue;
+    seen.add(sub.id);
+    merged.push(sub);
+  }
+  memorySubscriptions = merged;
+  return subscriptions;
+}
+
+export async function deleteSubscription(subId: string): Promise<boolean> {
+  const db = await connectToDatabase();
+  if (db) {
+    await flushPendingSubscriptions();
+    const res = await SubscriptionModel.deleteOne({ id: subId });
+    return (res.deletedCount ?? 0) > 0;
+  }
+
+  const before = memorySubscriptions.length;
+  memorySubscriptions = memorySubscriptions.filter((s) => s.id !== subId);
+  return memorySubscriptions.length < before;
 }

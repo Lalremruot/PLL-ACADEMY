@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getAllInvoices, createInvoice, updateInvoices } from '@/services/invoiceService';
+import { getAllInvoices, createInvoice, updateInvoices, deleteInvoice } from '@/services/invoiceService';
 import { requireAuth } from '@/lib/authGuard';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
 
@@ -57,5 +57,22 @@ export async function PUT(req: NextRequest) {
     return errorResponse('Expected an array of invoices for bulk update', 400);
   } catch (err: any) {
     return errorResponse(err.message || 'Failed to update invoices', 500);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  const auth = requireAuth(req, ['admin']);
+  if ('response' in auth) return auth.response;
+  try {
+    const body = await req.json();
+    const { id } = body;
+    if (!id) {
+      return errorResponse('Invoice id is required', 400);
+    }
+    const deleted = await deleteInvoice(id);
+    if (!deleted) return errorResponse('Invoice not found', 404);
+    return successResponse({ id }, 'Invoice deleted successfully');
+  } catch (err: any) {
+    return errorResponse(err.message || 'Failed to delete invoice', 500);
   }
 }
