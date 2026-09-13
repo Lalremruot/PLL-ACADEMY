@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, Filter, Plus, IndianRupee, Percent, AlertCircle, Sparkles, 
-  ArrowUpRight, BookOpen, Trash2, X, Info, AlertTriangle
+  ArrowUpRight, BookOpen, Trash2, X, Info, AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { Invoice, Subscription, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
@@ -43,6 +43,8 @@ export default function AdminDashboard({
   // Deleting a ledger record is irreversible, so the row's trash button only
   // stages the invoice here; the confirmation modal is what actually deletes.
   const [invoicePendingDelete, setInvoicePendingDelete] = useState<Invoice | null>(null);
+  // Ledger rows start collapsed to 5; the Show All toggle reveals the rest.
+  const [showAllInvoices, setShowAllInvoices] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -87,6 +89,14 @@ export default function AdminDashboard({
     
     return matchesSearch && matchesStatus;
   });
+
+  // Collapsed view shows the first 5 ledger rows until "Show All" is pressed.
+  // New filters reset the list back to the collapsed view.
+  const visibleLedgerInvoices = showAllInvoices ? filteredInvoices : filteredInvoices.slice(0, 5);
+
+  useEffect(() => {
+    setShowAllInvoices(false);
+  }, [searchTerm, statusFilter]);
 
   // Handle Form Submission
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -410,7 +420,7 @@ export default function AdminDashboard({
               Ensures Status and Amount are highly prominent, meeting the exact design rule.
             */
             <div className="space-y-4">
-              {filteredInvoices.map(invoice => (
+              {visibleLedgerInvoices.map(invoice => (
                 <div
                   key={invoice.id}
                   onClick={() => onSelectInvoice(invoice)}
@@ -506,7 +516,7 @@ export default function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-brand-border">
-                  {filteredInvoices.map((invoice, idx) => (
+                  {visibleLedgerInvoices.map((invoice, idx) => (
                     <tr
                       key={invoice.id}
                       onClick={() => onSelectInvoice(invoice)}
@@ -587,6 +597,18 @@ export default function AdminDashboard({
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {filteredInvoices.length > 5 && (
+            <div className="flex justify-center pt-1">
+              <button
+                type="button"
+                onClick={() => setShowAllInvoices(prev => !prev)}
+                className="flex items-center gap-1.5 rounded-xs border border-brand-border bg-brand-surface-card px-4 py-2 font-mono text-[10px] uppercase tracking-wider text-brand-gold hover:border-brand-gold hover:bg-brand-gold/10 transition-all cursor-pointer"
+              >
+                <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showAllInvoices ? 'rotate-180' : ''}`} />
+                {showAllInvoices ? 'Show Less' : `Show All (${filteredInvoices.length})`}
+              </button>
             </div>
           )}
         </div>
