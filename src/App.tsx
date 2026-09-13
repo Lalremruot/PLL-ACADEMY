@@ -31,6 +31,7 @@ import AdminDashboard from './components/AdminDashboard';
 import ParentPortal from './components/ParentPortal';
 import StudentProfileView from './components/StudentProfileView';
 import StudentRegistry from './components/StudentRegistry';
+import TuitionRegistry from './components/TuitionRegistry';
 import InvoiceReceiptModal from './components/InvoiceReceiptModal';
 import FinancialReports from './components/FinancialReports';
 import Settings from './components/Settings';
@@ -66,6 +67,7 @@ import {
 type ConsoleTab =
   | 'ledger'
   | 'students'
+  | 'subscriptions'
   | 'attendance'
   | 'managerCheckIn'
   | 'managerLog'
@@ -186,6 +188,7 @@ export default function App() {
       (hasPermission(managerPermissions, 'canViewStudents') ||
         hasPermission(managerPermissions, 'canManageStudents')));
   const canManageStudents = isAdmin || (isManager && hasPermission(managerPermissions, 'canManageStudents'));
+  const canViewSubscriptions = isAdmin;
   const canMarkAttendance =
     isAdmin || (isManager && hasPermission(managerPermissions, 'canMarkStudentAttendance'));
   const canAccessReports = isAdmin;
@@ -202,6 +205,7 @@ export default function App() {
     const allowed: ConsoleTab[] = [];
     if (canViewLedger) allowed.push('ledger');
     if (canViewStudents) allowed.push('students');
+    if (canViewSubscriptions) allowed.push('subscriptions');
     if (canMarkAttendance) allowed.push('attendance');
     if (canManagerCheckIn) allowed.push('managerCheckIn');
     if (canViewManagerLog) allowed.push('managerLog');
@@ -215,6 +219,7 @@ export default function App() {
     adminTab,
     canViewLedger,
     canViewStudents,
+    canViewSubscriptions,
     canMarkAttendance,
     canManagerCheckIn,
     canViewManagerLog,
@@ -549,6 +554,8 @@ export default function App() {
                   {canViewLedger && renderTabButton('ledger', 'Main Ledger')}
                   {canViewStudents &&
                     renderTabButton('students', `Student Registry (${subscriptions.length})`)}
+                  {canViewSubscriptions &&
+                    renderTabButton('subscriptions', 'Subscriptions')}
                   {canMarkAttendance && renderTabButton('attendance', 'Attendance')}
                   {canManagerCheckIn && renderTabButton('managerCheckIn', 'My Check-In')}
                   {canViewManagerLog && renderTabButton('managerLog', 'Manager Log')}
@@ -574,6 +581,16 @@ export default function App() {
                   onAddInvoice={handleAddInvoice}
                   onDeleteInvoice={handleDeleteInvoice}
                   onSelectInvoice={setSelectedInvoice}
+                  onSelectSubscription={setSelectedSubscription}
+                  onUpdateSubscriptionStatus={handleUpdateSubscriptionStatus}
+                  onOpenSubscriptions={() => setAdminTab('subscriptions')}
+                />
+              )}
+
+              {adminTab === 'subscriptions' && canViewSubscriptions && (
+                <TuitionRegistry
+                  subscriptions={subscriptions}
+                  isMobileMode={isMobileMode}
                   onSelectSubscription={setSelectedSubscription}
                   onUpdateSubscriptionStatus={handleUpdateSubscriptionStatus}
                 />

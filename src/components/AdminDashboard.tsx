@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, Filter, Plus, IndianRupee, Percent, AlertCircle, Sparkles, 
-  User, Mail, ArrowUpRight, CheckCircle2, AlertTriangle, BookOpen, Clock, Trash2, X, KeyRound, Info
+  ArrowUpRight, BookOpen, Trash2, X, Info, AlertTriangle
 } from 'lucide-react';
 import { Invoice, Subscription, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
@@ -19,6 +19,8 @@ interface AdminDashboardProps {
   onUpdateSubscriptionStatus: (subId: string, newStatus: 'Active' | 'Paused' | 'Canceled') => void;
   onSelectInvoice: (invoice: Invoice) => void;
   onSelectSubscription: (sub: Subscription) => void;
+  /** Switch to the Subscription Registry tab (full contract list lives there). */
+  onOpenSubscriptions: () => void;
 }
 
 export default function AdminDashboard({
@@ -31,7 +33,8 @@ export default function AdminDashboard({
   onDeleteInvoice,
   onUpdateSubscriptionStatus,
   onSelectInvoice,
-  onSelectSubscription
+  onSelectSubscription,
+  onOpenSubscriptions
 }: AdminDashboardProps) {
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
@@ -600,101 +603,47 @@ export default function AdminDashboard({
           </div>
 
           <div className="bg-brand-surface-card border border-brand-border p-5 rounded-xs space-y-4">
-            <h3 className="font-sans text-xs font-bold uppercase tracking-wider text-brand-gold">
-              Tuition Tier Monitors
-            </h3>
-
-            <div className="divide-y divide-brand-border">
-              {subscriptions.map(sub => {
-                const isActive = sub.status === 'Active';
-                const isPaused = sub.status === 'Paused';
-                
-                return (
-                  <div key={sub.id} className="py-3.5 flex flex-col gap-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p 
-                          onClick={() => onSelectSubscription(sub)}
-                          className="font-sans font-semibold text-white text-sm hover:text-brand-gold cursor-pointer transition-colors flex items-center gap-1 group/subname"
-                          title="View student profile"
-                        >
-                          {sub.studentName}
-                          <ArrowUpRight className="h-3 w-3 opacity-60 group-hover/subname:opacity-100 group-hover/subname:translate-x-0.5 group-hover/subname:-translate-y-0.5 transition-all text-brand-gold shrink-0" />
-                        </p>
-                        <p className="font-sans text-xs text-gray-400 truncate max-w-[170px]" title={sub.courseName}>
-                          {sub.courseName}
-                        </p>
-                        {sub.status === 'Active' && sub.parentLoginId && (
-                          <p
-                            className="font-mono text-[10px] text-brand-gold/90 cursor-pointer hover:text-brand-gold transition-colors select-all flex items-center gap-1 mt-0.5"
-                            title="Parent Login ID — share this with the parent so they can log in"
-                            onClick={(e) => { e.stopPropagation(); navigator.clipboard?.writeText(sub.parentLoginId!); }}
-                          >
-                            <KeyRound className="h-3 w-3 shrink-0" />
-                            {sub.parentLoginId}
-                            <span className="text-gray-500 font-sans text-[9px] normal-case">(tap to copy)</span>
-                          </p>
-                        )}
-                      </div>
-                      
-                      {/* Premium indicator */}
-                      <span className={`px-2 py-0.5 rounded-full font-mono text-[9px] uppercase tracking-wide font-semibold ${
-                        sub.tier === 'Premium' 
-                          ? 'bg-brand-gold/10 text-brand-gold border border-brand-gold/30' 
-                          : 'bg-brand-border text-gray-400'
-                      }`}>
-                        {sub.tier}
-                      </span>
-                    </div>
-
-<div className="flex items-center justify-between mt-1 text-xs">
-  <span className="font-mono text-gray-400">
-    {isAdmin ? `₹${sub.monthlyFee}/mo` : 'Fee & status'}
-  </span>
-
-                      {/* Custom Switch Toggle which glows gold when active */}
-                      <div className="flex items-center gap-2">
-                        <span className={`font-mono text-[10px] uppercase font-bold tracking-wider ${
-                          isActive 
-                            ? 'text-green-400 font-extrabold shadow-[0_0_8px_rgba(74,222,128,0.1)]' 
-                            : isPaused 
-                              ? 'text-yellow-400 font-extrabold shadow-[0_0_8px_rgba(250,204,21,0.1)]' 
-                              : 'text-red-400 font-extrabold'
-                        }`}>
-                          {sub.status}
-                        </span>
-
-                        <button
-                          onClick={() => {
-                            const nextStateMap: Record<'Active' | 'Paused' | 'Canceled', 'Active' | 'Paused' | 'Canceled'> = {
-                              'Active': 'Paused',
-                              'Paused': 'Active',
-                              'Canceled': 'Active'
-                            };
-                            onUpdateSubscriptionStatus(sub.id, nextStateMap[sub.status]);
-                          }}
-                          className={`w-9 h-5 rounded-full p-0.5 transition-all duration-300 relative cursor-pointer ${
-                            isActive 
-                              ? 'bg-brand-gold glow-gold' 
-                              : isPaused 
-                                ? 'bg-brand-amethyst' 
-                                : 'bg-brand-border'
-                          }`}
-                        >
-                          <div 
-                            className={`w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300 absolute top-0.5 ${
-                              isActive 
-                                ? 'right-0.5 translate-x-0' 
-                                : 'left-0.5 translate-x-0'
-                            }`}
-                          />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="flex items-center justify-between">
+              <h3 className="font-sans text-xs font-bold uppercase tracking-wider text-brand-gold">
+                Tuition Tier Monitors
+              </h3>
+              <span className="font-mono text-[10px] text-gray-500">
+                {premiumEnrollmentCount} premium ·{' '}
+                {subscriptions.filter(s => s.status === 'Active').length} active
+              </span>
             </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-brand-charcoal/60 border border-brand-border rounded-xs p-3">
+                <p className="font-sans text-[10px] uppercase tracking-wider text-gray-400">
+                  Premium Active
+                </p>
+                <p className="mt-1 font-mono text-lg font-bold text-brand-gold">
+                  {premiumEnrollmentCount}
+                </p>
+              </div>
+              <div className="bg-brand-charcoal/60 border border-brand-border rounded-xs p-3">
+                <p className="font-sans text-[10px] uppercase tracking-wider text-gray-400">
+                  Active Billing / mo
+                </p>
+                <p className="mt-1 font-mono text-lg font-bold text-white">
+                  ₹
+                  {subscriptions
+                    .filter(s => s.status === 'Active')
+                    .reduce((sum, s) => sum + s.monthlyFee, 0)
+                    .toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onOpenSubscriptions}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xs border border-brand-gold/40 bg-brand-gold/10 px-4 py-2.5 font-sans text-xs font-semibold text-brand-gold hover:bg-brand-gold hover:text-black transition-all cursor-pointer"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" />
+              Open Subscription Registry
+            </button>
           </div>
 
           {/* Quick Stats Panel */}
