@@ -5,9 +5,10 @@ import { formatDisplayDate } from './attendance-dates';
 
 /**
  * Downloads an invoice as a nicely formatted, printable PDF receipt.
- * Available to admins, managers, and parents.
+ * Available to admins, managers, and parents. When `hideAmounts` is set
+ * (parent-facing), fee figures are redacted and replaced with a note.
  */
-export const downloadReceiptPdf = (invoice: Invoice): void => {
+export const downloadReceiptPdf = (invoice: Invoice, hideAmounts = false): void => {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
   // Header
@@ -57,16 +58,24 @@ export const downloadReceiptPdf = (invoice: Invoice): void => {
 
   line('Course / Program', invoice.courseName);
 
-  autoTable(doc, {
-    startY: y,
-    head: [['Tuition Fee', 'Total Amount']],
-    body: [[`₹${invoice.amount.toFixed(2)}`, `₹${invoice.amount.toFixed(2)}`]],
-    styles: { fontSize: 11, cellPadding: 6, halign: 'center' },
-    headStyles: { fillColor: [212, 175, 55], textColor: 0 },
-    margin: { left: 40, right: 40 },
-  });
+  if (hideAmounts) {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Tuition fee details are managed by the academy.', 40, y + 10);
+    y += 30;
+  } else {
+    autoTable(doc, {
+      startY: y,
+      head: [['Tuition Fee', 'Total Amount']],
+      body: [[`₹${invoice.amount.toFixed(2)}`, `₹${invoice.amount.toFixed(2)}`]],
+      styles: { fontSize: 11, cellPadding: 6, halign: 'center' },
+      headStyles: { fillColor: [212, 175, 55], textColor: 0 },
+      margin: { left: 40, right: 40 },
+    });
 
-  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 40;
+    y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 40;
+  }
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);

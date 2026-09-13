@@ -9,9 +9,11 @@ interface InvoiceReceiptModalProps {
   invoice: Invoice;
   onClose: () => void;
   onPaySuccess?: (invoiceId: string) => void;
+  /** Hide tuition fee amounts (parent-facing receipts). */
+  hideAmounts?: boolean;
 }
 
-export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: InvoiceReceiptModalProps) {
+export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hideAmounts = false }: InvoiceReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -20,6 +22,14 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
     if (printContent) {
       // Inline visual-only printing simulation, or trigger native print if possible.
       // Since alert/new window is discouraged in sandboxed iframe, we'll simulate a gorgeous print receipt style.
+      const feeBlock = hideAmounts
+        ? `<div class="row"><span class="bold">Course / Class:</span><span>${invoice.courseName}</span></div>
+      <div class="divider"></div>
+      <div class="row"><span class="bold">Tuition Fee:</span><span>Managed by the academy</span></div>`
+        : `<div class="row"><span class="bold">Course / Class:</span><span>${invoice.courseName}</span></div>
+      <div class="row"><span class="bold">Tuition Fee:</span><span class="bold">₹${invoice.amount.toFixed(2)}</span></div>
+      <div class="divider"></div>
+      <div class="row" style="font-size: 18px;"><span class="bold">TOTAL AMOUNT:</span><span class="bold">₹${invoice.amount.toFixed(2)}</span></div>`;
       const printWindow = window.open('', '', 'width=800,height=600');
       if (printWindow) {
         printWindow.document.write(`
@@ -56,10 +66,7 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
                 <div class="row"><span class="bold">Parent Email:</span><span>${invoice.parentEmail}</span></div>
                 <div class="row"><span class="bold">Semester:</span><span>${invoice.semester}</span></div>
                 <div class="divider"></div>
-                <div class="row"><span class="bold">Course / Class:</span><span>${invoice.courseName}</span></div>
-                <div class="row"><span class="bold">Tuition Fee:</span><span class="bold">₹${invoice.amount.toFixed(2)}</span></div>
-                <div class="divider"></div>
-                <div class="row" style="font-size: 18px;"><span class="bold">TOTAL AMOUNT:</span><span class="bold">₹${invoice.amount.toFixed(2)}</span></div>
+                ${feeBlock}
                 <div class="footer">
                   <p>Thank you for supporting Athletic Excellence.</p>
                   <p>PLL Academy &bull; Billing Office</p>
@@ -114,9 +121,11 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
                 <span className="font-mono text-xs font-semibold uppercase tracking-wider text-brand-emerald">
                   Transaction Paid
                 </span>
-                <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
-                  ₹{invoice.amount.toFixed(2)}
-                </span>
+                {!hideAmounts && (
+                  <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
+                    ₹{invoice.amount.toFixed(2)}
+                  </span>
+                )}
                 <p className="mt-2 font-mono text-xs text-gray-500">
                   Ref ID: {invoice.transactionId || 'TXN-AUTO-9201'}
                 </p>
@@ -131,9 +140,11 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
                 <span className="font-mono text-xs font-semibold uppercase tracking-wider text-brand-cinnabar">
                   Transaction Failed / Overdue
                 </span>
-                <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
-                  ₹{invoice.amount.toFixed(2)}
-                </span>
+                {!hideAmounts && (
+                  <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
+                    ₹{invoice.amount.toFixed(2)}
+                  </span>
+                )}
                 <p className="mt-2 font-sans text-xs text-gray-400">
                   Please initiate a payment from the Parent Portal immediately.
                 </p>
@@ -148,9 +159,11 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
                 <span className="font-mono text-xs font-semibold uppercase tracking-wider text-brand-amethyst">
                   Payment Outstanding
                 </span>
-                <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
-                  ₹{invoice.amount.toFixed(2)}
-                </span>
+                {!hideAmounts && (
+                  <span className="mt-1 font-mono text-3xl font-bold text-white tracking-tight">
+                    ₹{invoice.amount.toFixed(2)}
+                  </span>
+                )}
                 <p className="mt-2 font-sans text-xs text-gray-400">
                   Payment is scheduled for automatic draft or direct transfer.
                 </p>
@@ -194,9 +207,11 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
             <div className="border-b border-brand-border pb-4">
               <div className="flex items-center justify-between mb-1">
                 <span className="font-sans text-xs text-gray-500">Football Program / Course</span>
-                <span className="rounded-full bg-brand-charcoal px-2.5 py-0.5 font-mono text-[10px] text-brand-gold tracking-wide">
-                  {invoice.amount >= 400 ? 'PREMIUM TIER' : 'STANDARD TIER'}
-                </span>
+                {!hideAmounts && (
+                  <span className="rounded-full bg-brand-charcoal px-2.5 py-0.5 font-mono text-[10px] text-brand-gold tracking-wide">
+                    {invoice.amount >= 400 ? 'PREMIUM TIER' : 'STANDARD TIER'}
+                  </span>
+                )}
               </div>
               <p className="font-sans text-sm text-white font-semibold flex items-center gap-1.5">
                 <Award className="h-4 w-4 text-brand-gold shrink-0" />
@@ -225,7 +240,7 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess }: 
 
           <button
             id={`download-invoice-btn-${invoice.id}`}
-            onClick={() => downloadReceiptPdf(invoice)}
+            onClick={() => downloadReceiptPdf(invoice, hideAmounts)}
             className="flex items-center gap-2 rounded-xs border border-brand-border hover:border-brand-emerald bg-transparent px-4 py-2 font-sans text-xs font-medium text-white transition-all cursor-pointer"
           >
             <Download className="h-3.5 w-3.5 text-brand-emerald" />

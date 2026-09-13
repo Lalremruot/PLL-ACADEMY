@@ -3,12 +3,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   CreditCard, ShieldCheck, Mail, User, Trophy, HelpCircle, 
   ArrowRight, Landmark, Calendar, Eye, AlertTriangle, Sparkles,
-  ChevronDown, ChevronUp, Edit, GraduationCap, X
+  ChevronDown, ChevronUp, GraduationCap
 } from 'lucide-react';
 import { Invoice, Subscription, PaymentStatus, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
 import PlayerProfileStats from './player/PlayerProfileStats';
-import ProfilePicUpload from './ProfilePicUpload';
 import AttendanceSummary from './AttendanceSummary';
 import {
   apiCreateRazorpayOrder,
@@ -99,112 +98,14 @@ export default function ParentPortal({
   const parentInvoices = invoices.filter(inv => inv.parentEmail === parentEmail);
   const parentSubscriptions = subscriptions.filter(sub => sub.parentEmail === parentEmail);
 
-  // Totals for this parent
-  const outstandingInvoices = parentInvoices.filter(inv => inv.status !== 'Success');
-  const outstandingAmount = outstandingInvoices.reduce((sum, inv) => sum + inv.amount, 0);
-  const outstandingCount = outstandingInvoices.length;
-
-  const activeBillingAmount = parentSubscriptions
-    .filter(sub => sub.status === 'Active')
-    .reduce((sum, sub) => sum + sub.monthlyFee, 0);
-
   // Expanded student details state
   const [expandedSubId, setExpandedSubId] = useState<string | null>(null);
 
-  // Edit Student Profile Modal State
-  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
-  const [formData, setFormData] = useState({
-    studentName: '',
-    parentName: '',
-    parentEmail: '',
-    courseIndex: 0,
-    status: 'Active' as 'Active' | 'Paused' | 'Canceled',
-    tier: 'Standard' as 'Standard' | 'Premium',
-    batch: '',
-    age: '',
-    height: '',
-    weight: '',
-    aadhaar: '',
-    education: '',
-    familyDetails: '',
-    profilePic: '',
-    phoneNumber: '',
-  });
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-
-  const handleOpenEditModal = (sub: Subscription) => {
-    const matchedCourseIndex = courses.findIndex(c => c.name === sub.courseName);
-    setEditingSubscription(sub);
-    setFormData({
-      studentName: sub.studentName,
-      parentName: sub.parentName,
-      parentEmail: sub.parentEmail,
-      courseIndex: matchedCourseIndex !== -1 ? matchedCourseIndex : 0,
-      status: sub.status,
-      tier: sub.tier,
-      batch: sub.batch || (batches[0] || ''),
-      age: sub.age !== undefined ? String(sub.age) : '',
-      height: sub.height !== undefined ? String(sub.height) : '',
-      weight: sub.weight !== undefined ? String(sub.weight) : '',
-      aadhaar: sub.aadhaar || '',
-      education: sub.education || '',
-      familyDetails: sub.familyDetails || '',
-      profilePic: sub.profilePic || '',
-      phoneNumber: sub.phoneNumber || '',
-    });
-    setFormErrors({});
-  };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingSubscription) return;
-
-    const errors: Record<string, string> = {};
-    if (!formData.studentName.trim()) errors.studentName = 'Student name is required';
-    if (!formData.parentName.trim()) errors.parentName = 'Parent name is required';
-    if (!formData.parentEmail.trim()) {
-      errors.parentEmail = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.parentEmail)) {
-      errors.parentEmail = 'Invalid email address';
-    }
-    const phone = formData.phoneNumber.trim();
-    if (phone && !/^[6-9]\d{9}$/.test(phone)) {
-      errors.phoneNumber = 'Enter a valid 10-digit Indian mobile number';
-    }
-
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    const selectedCourse = courses[formData.courseIndex] || courses[0] || { name: 'Academy Training Plan', monthlyFee: 300, tier: 'Standard' };
-    const parsedAge = formData.age.trim() ? parseInt(formData.age, 10) : undefined;
-    const parsedHeight = formData.height.trim() ? parseFloat(formData.height) : undefined;
-    const parsedWeight = formData.weight.trim() ? parseFloat(formData.weight) : undefined;
-
-    if (onUpdateSubscription) {
-      onUpdateSubscription({
-        ...editingSubscription,
-        studentName: formData.studentName,
-        parentName: formData.parentName,
-        parentEmail: formData.parentEmail,
-        courseName: selectedCourse.name,
-        status: formData.status,
-        tier: formData.tier,
-        monthlyFee: selectedCourse.monthlyFee,
-        batch: formData.batch,
-        age: isNaN(parsedAge as any) ? undefined : parsedAge,
-        height: isNaN(parsedHeight as any) ? undefined : parsedHeight,
-        weight: isNaN(parsedWeight as any) ? undefined : parsedWeight,
-        aadhaar: formData.aadhaar.trim() || undefined,
-        education: formData.education.trim() || undefined,
-        familyDetails: formData.familyDetails.trim() || undefined,
-        profilePic: formData.profilePic.trim() || undefined,
-        phoneNumber: phone || undefined,
-      });
-    }
-    setEditingSubscription(null);
-  };
+  // Auto-debit phone-collection state (parents can't edit the profile, so
+  // auto-debit setup asks only for the mobile number Razorpay requires).
+  const [phoneModalSub, setPhoneModalSub] = useState<Subscription | null>(null);
+  const [phoneDraft, setPhoneDraft] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
   // Checkout modal state
   const [checkoutInvoice, setCheckoutInvoice] = useState<Invoice | null>(null);
@@ -398,22 +299,7 @@ export default function ParentPortal({
       }
     });
 
-  const handleEnableAutoDebit = async (sub: Subscription) => {
-    setMandateSubId(sub.id);
-    setCheckoutError('');
-
-    // Razorpay requires the parent's 10-digit mobile on the customer record for
-    // an e-mandate. If it's not saved yet, ask the parent to add it first.
-    if (!sub.phoneNumber || !/^[6-9]\d{9}$/.test(sub.phoneNumber)) {
-      setMandateSubId(null);
-      handleOpenEditModal(sub);
-      setFormErrors((prev) => ({
-        ...prev,
-        phoneNumber: 'Add your 10-digit mobile number to set up auto-debit.',
-      }));
-      return;
-    }
-
+  const continueMandateSetup = async (sub: Subscription): Promise<void> => {
     // Auto-debit needs the parent's UPI/bank details via Razorpay. Those are
     // always collected by the mandate checkout itself, but to make the flow
     // coherent the parent must first settle an outstanding invoice upfront:
@@ -448,6 +334,36 @@ export default function ParentPortal({
       }
       setMandateSubId(null);
     }
+  };
+
+  const handleEnableAutoDebit = async (sub: Subscription) => {
+    setMandateSubId(sub.id);
+    setCheckoutError('');
+
+    // Razorpay requires the parent's 10-digit mobile on the customer record for
+    // an e-mandate. If it's not saved yet, ask the parent to add just that.
+    if (!sub.phoneNumber || !/^[6-9]\d{9}$/.test(sub.phoneNumber)) {
+      setMandateSubId(null);
+      setPhoneModalSub(sub);
+      setPhoneDraft(sub.phoneNumber || '');
+      setPhoneError('');
+      return;
+    }
+
+    continueMandateSetup(sub);
+  };
+
+  const handleSavePhone = (e: React.FormEvent) => {
+    e.preventDefault();
+    const phone = phoneDraft.trim();
+    if (!/^[6-9]\d{9}$/.test(phone)) {
+      setPhoneError('Enter a valid 10-digit Indian mobile number.');
+      return;
+    }
+    const updated = { ...phoneModalSub, phoneNumber: phone } as Subscription;
+    setPhoneModalSub(null);
+    onUpdateSubscription?.(updated);
+    continueMandateSetup(updated);
   };
 
   const handleMandateSuccess = async (response: any, sub: Subscription) => {
@@ -530,7 +446,7 @@ export default function ParentPortal({
       </div>
 
       {/* Parent Overview Profile Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* Profile Card */}
         <div className="border border-brand-border bg-brand-surface-card p-5 rounded-xs flex gap-4 items-center">
           <div className="h-12 w-12 rounded-full bg-brand-gold/15 text-brand-gold flex items-center justify-center font-sans font-bold text-lg border border-brand-gold/25">
@@ -541,37 +457,6 @@ export default function ParentPortal({
             <h4 className="font-sans font-bold text-white text-base">{activeParent.name}</h4>
             <p className="font-mono text-[10px] text-gray-500">{activeParent.email}</p>
           </div>
-        </div>
-
-        {/* Outstanding Balance */}
-        <div className="border border-brand-border bg-brand-surface-card p-5 rounded-xs">
-          <span className="font-sans text-xs text-gray-400 uppercase tracking-wide">Outstanding Balance</span>
-          <div className="flex items-baseline gap-2 mt-1">
-            <h3 className={`font-mono text-2xl font-bold ${outstandingAmount > 0 ? 'text-brand-cinnabar' : 'text-brand-emerald'}`}>
-              ₹{outstandingAmount.toFixed(2)}
-            </h3>
-            {outstandingAmount > 0 && (
-              <span className="text-[10px] bg-brand-cinnabar/10 text-brand-cinnabar px-1.5 py-0.5 rounded-full font-mono font-semibold uppercase animate-pulse">
-                Overdue
-              </span>
-            )}
-          </div>
-          <p className="font-sans text-xs text-gray-500 mt-1">
-            {outstandingAmount > 0
-              ? `Across ${outstandingCount} unpaid bill${outstandingCount !== 1 ? 's' : ''} — settle each invoice individually`
-              : 'All billing contracts cleared'}
-          </p>
-        </div>
-
-        {/* Subscriptions count */}
-        <div className="border border-brand-border bg-brand-surface-card p-5 rounded-xs">
-          <span className="font-sans text-xs text-gray-400 uppercase tracking-wide">Active Tuition Plan</span>
-          <h3 className="font-mono text-2xl font-bold text-white mt-1">
-            ₹{activeBillingAmount.toFixed(2)}<span className="text-xs text-gray-400 font-sans font-normal"> /mo</span>
-          </h3>
-          <p className="font-sans text-xs text-brand-gold mt-1">
-            Covering {parentSubscriptions.filter(s => s.status === 'Active').length} training program(s)
-          </p>
         </div>
       </div>
 
@@ -723,28 +608,11 @@ export default function ParentPortal({
                             </h5>
                             <PlayerProfileStats subscription={sub} />
                           </div>
-
-                          {/* Edit Profile Action */}
-                          <div className="flex justify-end pt-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEditModal(sub)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 bg-brand-charcoal hover:bg-brand-surface-raised border border-brand-border hover:border-brand-gold text-white hover:text-brand-gold text-[10px] font-bold uppercase tracking-wider rounded-xs transition-all cursor-pointer shadow-sm"
-                            >
-                              <Edit className="h-3.5 w-3.5" />
-                              <span>Edit Athlete Profile</span>
-                            </button>
-                          </div>
                         </motion.div>
                       )}
                     </AnimatePresence>
 
-                    <div className="border-t border-brand-border/60 pt-4 flex items-center justify-between">
-                      <div className="font-mono text-xs">
-                        <span className="text-gray-500 block text-[9px] uppercase tracking-wider font-sans">Monthly Rate</span>
-                        <span className="text-white font-bold">₹{sub.monthlyFee}.00</span>
-                      </div>
-
+                    <div className="border-t border-brand-border/60 pt-4 flex items-center justify-end">
                       {/* Custom Toggle Switch - glows gold when Active */}
                       <div className="flex items-center gap-3 bg-brand-charcoal px-3 py-1.5 rounded-sm border border-brand-border">
                         <span className={`font-mono text-[10px] font-bold uppercase tracking-wider ${
@@ -870,9 +738,8 @@ export default function ParentPortal({
                   key={invoice.id}
                   className="bg-brand-surface-card border border-brand-border p-4 rounded-xs hover:border-gray-700 transition-colors"
                 >
-                  <div className="flex justify-between items-center border-b border-brand-border/40 pb-2 mb-3">
+                  <div className="flex items-center border-b border-brand-border/40 pb-2 mb-3">
                     <span className="font-mono text-xs font-bold text-white">{invoice.id}</span>
-                    <span className="font-mono text-xs font-bold text-white">₹{invoice.amount}</span>
                   </div>
 
                   <div className="space-y-2">
@@ -927,7 +794,6 @@ export default function ParentPortal({
                   <tr className="border-b border-brand-border bg-brand-charcoal/80 text-[10px] font-mono uppercase tracking-wider text-gray-400">
                     <th className="py-3 px-4">Invoice ID</th>
                     <th className="py-3 px-4">Curriculum Target</th>
-                    <th className="py-3 px-4 font-mono">Amount</th>
                     <th className="py-3 px-4">Due Date</th>
                     <th className="py-3 px-4">Ledger Status</th>
                     <th className="py-3 px-4 text-right">Actions</th>
@@ -944,9 +810,6 @@ export default function ParentPortal({
                           {invoice.courseName}
                         </p>
                         <p className="font-sans text-[10px] text-gray-400">Artisan: {invoice.studentName}</p>
-                      </td>
-                      <td className="py-4.5 px-4 font-mono text-white font-bold">
-                        ₹{invoice.amount}.00
                       </td>
                       <td className="py-4.5 px-4 font-mono text-gray-400">
                         {formatDisplayDate(invoice.dueDate)}
@@ -1106,279 +969,76 @@ export default function ParentPortal({
         )}
       </AnimatePresence>
 
-        {/* Sleek Edit Athlete Profile Modal (AnimatePresence) */}
-        <AnimatePresence>
-          {editingSubscription && (
-            <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-lg my-auto max-h-[90vh] overflow-y-auto border border-brand-border bg-brand-surface-modal rounded-lg shadow-2xl"
-              >
-                {/* Modal Header */}
-                <div className="flex items-center justify-between border-b border-brand-border bg-brand-charcoal px-6 py-4">
-                  <div className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-brand-gold" />
-                    <h3 className="font-sans text-sm font-semibold text-white uppercase tracking-wider">
-                      Edit Athlete & Program Details
-                    </h3>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSubscription(null)}
-                    className="rounded-full p-1 text-gray-400 hover:bg-brand-border hover:text-white transition-colors cursor-pointer"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
+      {/* Add Mobile Number (for Auto-Debit) Modal */}
+      <AnimatePresence>
+        {phoneModalSub && (
+          <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center bg-black/80 p-4 backdrop-blur-xs overflow-y-auto">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md my-auto border border-brand-border bg-brand-surface-modal rounded-lg shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-brand-border bg-brand-charcoal px-6 py-4">
+                <div className="flex items-center gap-2">
+                  <Landmark className="h-5 w-5 text-brand-gold" />
+                  <h3 className="font-sans text-sm font-semibold text-white uppercase tracking-wider">
+                    Set Up Auto-Debit
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPhoneModalSub(null)}
+                  className="rounded-full p-1 text-gray-400 hover:bg-brand-border hover:text-white transition-colors cursor-pointer"
+                >
+                  <GraduationCap className="h-4 w-4 rotate-45" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSavePhone} className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1 font-sans">
+                    Parent Mobile Number <span className="text-brand-gold">(required for auto-debit)</span>
+                  </label>
+                  <input
+                    type="tel"
+                    autoFocus
+                    value={phoneDraft}
+                    onChange={e => { setPhoneDraft(e.target.value); setPhoneError(''); }}
+                    className={`w-full bg-brand-charcoal border text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono ${
+                      phoneError ? 'border-brand-cinnabar' : 'border-brand-border focus:border-brand-gold'
+                    }`}
+                    placeholder="e.g. 9876543210"
+                  />
+                  {phoneError && (
+                    <p className="text-brand-cinnabar text-[10px] mt-1 font-mono">{phoneError}</p>
+                  )}
+                  <p className="font-sans text-[10px] text-gray-500 mt-2 leading-relaxed">
+                    Auto-debit needs your 10-digit mobile on the Razorpay mandate. Everything else on the athlete
+                    profile is managed by the academy.
+                  </p>
                 </div>
 
-                {/* Form Body */}
-                <form onSubmit={handleSaveProfile} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
-                  
-                  {/* Section 1: Core Identification */}
-                  <div className="space-y-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-wider text-brand-gold border-b border-brand-border pb-1">
-                      1. Core Identity & Media
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Athlete Full Name</label>
-                        <input
-                          type="text"
-                          required
-                          value={formData.studentName}
-                          onChange={e => setFormData({ ...formData, studentName: e.target.value })}
-                          className={`w-full bg-brand-charcoal border text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors ${
-                            formErrors.studentName ? 'border-brand-cinnabar' : 'border-brand-border focus:border-brand-gold'
-                          }`}
-                          placeholder="Athlete Name"
-                        />
-                        {formErrors.studentName && (
-                          <p className="text-brand-cinnabar text-[10px] mt-1 font-mono">{formErrors.studentName}</p>
-                        )}
-                      </div>
-
-                      <div>
-                        <ProfilePicUpload
-                          value={formData.profilePic}
-                          onChange={(dataUrl) => setFormData({ ...formData, profilePic: dataUrl })}
-                          compact
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 2: Registration & Training Assignment */}
-                  <div className="space-y-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-wider text-brand-gold border-b border-brand-border pb-1">
-                      2. Academy Placement
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Active Training Program</label>
-                        <select
-                          value={formData.courseIndex}
-                          onChange={e => {
-                            const idx = parseInt(e.target.value, 10);
-                            const course = courses[idx];
-                            setFormData({ 
-                              ...formData, 
-                              courseIndex: idx,
-                              tier: course ? (course.tier as 'Standard' | 'Premium') : 'Standard'
-                            });
-                          }}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors cursor-pointer"
-                        >
-                          {courses.map((course, idx) => (
-                            <option key={course.name} value={idx}>
-                              {course.name} (₹{course.monthlyFee}/mo)
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Training Batch Assignment</label>
-                        <select
-                          value={formData.batch}
-                          onChange={e => setFormData({ ...formData, batch: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors cursor-pointer"
-                        >
-                          {batches.map(b => (
-                            <option key={b} value={b}>{b}</option>
-                          ))}
-                          <option value="Unassigned">Unassigned / Others</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 3: Physical Metrics & Age */}
-                  <div className="space-y-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-wider text-brand-gold border-b border-brand-border pb-1">
-                      3. Athlete Metrics & Age
-                    </h4>
-                    
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Age (years)</label>
-                        <input
-                          type="number"
-                          min="4"
-                          max="30"
-                          value={formData.age}
-                          onChange={e => setFormData({ ...formData, age: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono"
-                          placeholder="14"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Height (cm)</label>
-                        <input
-                          type="number"
-                          min="50"
-                          max="250"
-                          value={formData.height}
-                          onChange={e => setFormData({ ...formData, height: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono"
-                          placeholder="165"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Weight (kg)</label>
-                        <input
-                          type="number"
-                          min="10"
-                          max="150"
-                          value={formData.weight}
-                          onChange={e => setFormData({ ...formData, weight: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono"
-                          placeholder="52"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Section 4: Academic & Background Credentials */}
-                  <div className="space-y-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-wider text-brand-gold border-b border-brand-border pb-1">
-                      4. Personal & School Background
-                    </h4>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">National ID (Aadhaar / Passport)</label>
-                        <input
-                          type="text"
-                          value={formData.aadhaar}
-                          onChange={e => setFormData({ ...formData, aadhaar: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono"
-                          placeholder="e.g. 1234-5678-9012"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">School / Education Grade</label>
-                        <input
-                          type="text"
-                          value={formData.education}
-                          onChange={e => setFormData({ ...formData, education: e.target.value })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors"
-                          placeholder="St. Mary's Academy, Grade 9"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1 font-sans">
-                        Parent Mobile Number <span className="text-brand-gold">(required for auto-debit)</span>
-                      </label>
-                      <input
-                        type="tel"
-                        value={formData.phoneNumber}
-                        onChange={e => setFormData({ ...formData, phoneNumber: e.target.value })}
-                        className={`w-full bg-brand-charcoal border text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors font-mono ${
-                          formErrors.phoneNumber ? 'border-brand-cinnabar' : 'border-brand-border focus:border-brand-gold'
-                        }`}
-                        placeholder="e.g. 9876543210"
-                      />
-                      {formErrors.phoneNumber && (
-                        <p className="text-brand-cinnabar text-[10px] mt-1 font-mono">{formErrors.phoneNumber}</p>
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="block text-xs text-gray-400 mb-1 font-sans">Family Background & Guardian Notes</label>
-                      <textarea
-                        rows={2}
-                        value={formData.familyDetails}
-                        onChange={e => setFormData({ ...formData, familyDetails: e.target.value })}
-                        className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors"
-                        placeholder="Father is a high school football coach, family has athletic pedigree..."
-                      />
-                    </div>
-                  </div>
-
-                  {/* Section 5: Status Control */}
-                  <div className="space-y-4">
-                    <h4 className="font-mono text-[9px] uppercase tracking-wider text-brand-gold border-b border-brand-border pb-1">
-                      5. Contract Terms & Status
-                    </h4>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Contract Class</label>
-                        <select
-                          value={formData.tier}
-                          onChange={e => setFormData({ ...formData, tier: e.target.value as 'Standard' | 'Premium' })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors cursor-pointer"
-                        >
-                          <option value="Standard">Standard Class</option>
-                          <option value="Premium">Premium Class</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs text-gray-400 mb-1 font-sans">Subscription Status</label>
-                        <select
-                          value={formData.status}
-                          onChange={e => setFormData({ ...formData, status: e.target.value as 'Active' | 'Paused' | 'Canceled' })}
-                          className="w-full bg-brand-charcoal border border-brand-border focus:border-brand-gold text-xs p-2.5 rounded-xs focus:outline-hidden transition-colors cursor-pointer"
-                        >
-                          <option value="Active">Active</option>
-                          <option value="Paused">Paused</option>
-                          <option value="Canceled">Canceled</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Submit Action Block */}
-                  <div className="flex gap-2 pt-4 border-t border-brand-border">
-                    <button
-                      type="button"
-                      onClick={() => setEditingSubscription(null)}
-                      className="flex-1 py-2.5 border border-brand-border text-gray-400 hover:text-white hover:bg-brand-surface-raised font-sans text-xs font-semibold rounded-xs transition-colors cursor-pointer"
-                    >
-                      Discard Changes
-                    </button>
-                    
-                    <button
-                      type="submit"
-                      className="flex-1 rounded-xs bg-brand-gold hover:bg-brand-gold-bright text-black font-sans text-xs font-bold py-2.5 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <span>Save Updates</span>
-                    </button>
-                  </div>
-
-                </form>
-              </motion.div>
-            </div>
-          )}
-        </AnimatePresence>
+                <div className="flex gap-2 pt-2 border-t border-brand-border">
+                  <button
+                    type="button"
+                    onClick={() => setPhoneModalSub(null)}
+                    className="flex-1 py-2.5 border border-brand-border text-gray-400 hover:text-white hover:bg-brand-charcoal font-sans text-xs font-semibold rounded-xs transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 rounded-xs bg-brand-gold hover:bg-brand-gold-bright text-black font-sans text-xs font-bold py-2.5 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    Save & Continue
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

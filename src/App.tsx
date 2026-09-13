@@ -682,6 +682,7 @@ export default function App() {
               invoice={selectedInvoice}
               onClose={() => setSelectedInvoice(null)}
               onPaySuccess={(id) => handlePayInvoice(id)}
+              hideAmounts={isParent}
             />
           )}
         </AnimatePresence>
