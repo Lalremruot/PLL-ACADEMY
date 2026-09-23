@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   Search, Filter, Download, User, Mail, BookOpen, IndianRupee, 
   Eye, Edit, Plus, X, Check, ArrowUpRight, GraduationCap, Clock, AlertCircle, Info, Trash2,
-  LayoutGrid, List, Calendar, TrendingUp, CheckCircle, Users
+  LayoutGrid, List, Calendar, TrendingUp, CheckCircle, Users, ArrowUpAZ, ArrowDownZA
 } from 'lucide-react';
 import { Subscription, Invoice, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
@@ -43,6 +43,8 @@ export default function StudentRegistry({
   // Filters & State
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Active' | 'Paused' | 'Canceled'>('All');
+  const [batchFilter, setBatchFilter] = useState('All');
+  const [sortOrder, setSortOrder] = useState<'az' | 'za'>('az');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'payments'>('grid');
   
   // Year and Month filters for payments tracking
@@ -209,18 +211,29 @@ export default function StudentRegistry({
     ? subscriptions.filter(sub => (managerBatch ? sub.batch === managerBatch : false))
     : subscriptions;
 
+  // Batches present in the scoped roster (manager scope respected).
+  const availableBatches = Array.from(
+    new Set(scopedSubscriptions.map(s => s.batch).filter((b): b is string => !!b))
+  ).sort((a, b) => a.localeCompare(b));
+
   // Filter subscriptions
-  const filteredSubscriptions = scopedSubscriptions.filter(sub => {
-    const matchesSearch = 
-      sub.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.parentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      sub.courseName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'All' || sub.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const filteredSubscriptions = scopedSubscriptions
+    .filter(sub => {
+      const matchesSearch = 
+        sub.studentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.parentName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.parentEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        sub.courseName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'All' || sub.status === statusFilter;
+      const matchesBatch = batchFilter === 'All' || sub.batch === batchFilter;
+      
+      return matchesSearch && matchesStatus && matchesBatch;
+    })
+    .sort((a, b) => {
+      const cmp = a.studentName.localeCompare(b.studentName);
+      return sortOrder === 'az' ? cmp : -cmp;
+    });
 
   // Managers never see the payments/money view regardless of state.
   const effectiveViewMode = isManager && viewMode === 'payments' ? 'grid' : viewMode;
@@ -419,6 +432,39 @@ export default function StudentRegistry({
             ))}
           </div>
 
+          {/* Batch filter */}
+          <div className="flex items-center bg-brand-charcoal border border-brand-border p-1 rounded-xs">
+            <Filter className="h-3.5 w-3.5 text-gray-500 ml-2 mr-1 shrink-0" />
+            <select
+              value={batchFilter}
+              onChange={(e) => setBatchFilter(e.target.value)}
+              className="bg-transparent pr-3 pl-1 py-1.5 font-sans text-[11px] font-semibold text-gray-300 hover:text-white focus:outline-none cursor-pointer"
+              aria-label="Filter by batch"
+            >
+              <option value="All">All Batches</option>
+              {availableBatches.map(batch => (
+                <option key={batch} value={batch}>{batch}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Alphabetic sort toggle */}
+          <button
+            type="button"
+            onClick={() => setSortOrder(o => (o === 'az' ? 'za' : 'az'))}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xs border font-sans text-[11px] font-semibold transition-all cursor-pointer ${
+              sortOrder === 'az'
+                ? 'bg-brand-charcoal border-brand-gold/40 text-brand-gold'
+                : 'bg-brand-charcoal border-brand-border text-gray-400 hover:text-white hover:border-gray-700'
+            }`}
+            title={sortOrder === 'az' ? 'Sorted A–Z — click for Z–A' : 'Sorted Z–A — click for A–Z'}
+          >
+            {sortOrder === 'az'
+              ? <ArrowUpAZ className="h-3.5 w-3.5 text-brand-gold shrink-0" />
+              : <ArrowDownZA className="h-3.5 w-3.5 text-brand-gold shrink-0" />}
+            <span>{sortOrder === 'az' ? 'A–Z' : 'Z–A'}</span>
+          </button>
+
           {/* Grid/List/Payments Toggle Switcher */}
           <div className="flex items-center bg-brand-charcoal border border-brand-border p-1 rounded-xs">
             <button
@@ -480,7 +526,7 @@ export default function StudentRegistry({
           <GraduationCap className="h-10 w-10 text-gray-600 mx-auto mb-3" />
           <p className="font-sans text-sm text-gray-400">No students match your criteria.</p>
           <button
-            onClick={() => { setSearchTerm(''); setStatusFilter('All'); }}
+            onClick={() => { setSearchTerm(''); setStatusFilter('All'); setBatchFilter('All'); }}
             className="mt-4 text-xs font-bold text-brand-gold hover:underline"
           >
             Clear Filters

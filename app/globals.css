@@ -117,6 +117,30 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* ---------------------------------------------------------------------------
+   PWA safe-area insets
+   viewport-fit: cover lets the document reach the notch / home-indicator, so
+   sticky headers and page bottoms must pad by the real inset when the app is
+   installed (env() resolves to 0px in a normal browser tab).
+
+   Some wrappers (in-app browsers, legacy WebKit) overlap the system status bar
+   but never expose the inset, so on phone viewports the top pad is floored at
+   a status-bar-height minimum — the exact inset still wins wherever it is
+   reported, but the navbar can never tuck under the battery / clock band.
+   ------------------------------------------------------------------------ */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 1023px) {
+  .safe-area-top {
+    padding-top: max(env(safe-area-inset-top, 0px), 47px);
+  }
+}
+
 /* Custom scrollbar for data-heavy administrative dashboards */
 ::-webkit-scrollbar {
   width: 6px;

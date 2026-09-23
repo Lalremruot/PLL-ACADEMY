@@ -442,7 +442,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-brand-bg text-brand-ink font-sans selection:bg-brand-blue selection:text-black antialiased">
-      <header className="sticky top-0 z-40 border-b border-brand-border bg-brand-bg/95 backdrop-blur-md">
+      <header className="safe-area-top sticky top-0 z-40 border-b border-brand-border bg-brand-bg/95 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <img
@@ -496,7 +496,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <main className="safe-area-bottom mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <AnimatePresence>
           {selectedSubscription && (isAdmin || canManageStudents) && (
             <StudentProfileView
