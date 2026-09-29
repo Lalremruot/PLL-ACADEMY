@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
       return errorResponse('Not authenticated', 401);
     }
     let assignedLocationId = session.assignedLocationId;
-    if (session.role === 'manager') {
+    // A demo manager has no record in the real settings store, and asking for
+    // one would be a real-data read on a session that must never make any.
+    if (session.role === 'manager' && !session.isDemo) {
       const assignments = await getManagerLocationAssignments();
       assignedLocationId = assignments[session.email] || assignedLocationId;
     }
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest) {
         parentLoginId: session.parentLoginId,
         assignedBatch: session.assignedBatch,
         assignedLocationId,
+        isDemo: Boolean(session.isDemo),
       },
       'Session active'
     );

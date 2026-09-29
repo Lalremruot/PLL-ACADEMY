@@ -16,6 +16,14 @@ export interface SessionPayload {
   assignedBatch?: string;
   /** Set for manager sessions — the location id the manager checks in at */
   assignedLocationId?: string;
+  /**
+   * Marks a read-only showcase session minted by /api/auth/demo.
+   *
+   * A demo session authenticates nobody and is scoped to a fictional dataset
+   * held in the browser. Every academy API rejects it — see requireAuth in
+   * lib/authGuard.ts — so it can never read or write production data.
+   */
+  isDemo?: boolean;
   exp: number;
 }
 
@@ -33,18 +41,27 @@ function sign(data: string): string {
 
 /**
  * Creates an HMAC-signed session token from a session payload.
+ *
+ * `ttlMs` overrides the default 7-day lifetime. The signature only stops being
+ * valid once `exp` passes, so shortening the cookie's `maxAge` alone is not
+ * enough — a demo session must expire in the token too, or it stays replayable
+ * for a week after the browser drops it.
  */
-export function createSessionToken(input: {
-  email: string;
-  role: 'admin' | 'manager' | 'parent';
-  name?: string;
-  subscriptionId?: string;
-  studentName?: string;
-  parentLoginId?: string;
-  assignedBatch?: string;
-  assignedLocationId?: string;
-}): string {
-  const body: SessionPayload = { ...input, exp: Date.now() + SESSION_TTL_MS };
+export function createSessionToken(
+  input: {
+    email: string;
+    role: 'admin' | 'manager' | 'parent';
+    name?: string;
+    subscriptionId?: string;
+    studentName?: string;
+    parentLoginId?: string;
+    assignedBatch?: string;
+    assignedLocationId?: string;
+    isDemo?: boolean;
+  },
+  ttlMs: number = SESSION_TTL_MS
+): string {
+  const body: SessionPayload = { ...input, exp: Date.now() + ttlMs };
   const encoded = Buffer.from(JSON.stringify(body)).toString('base64url');
   return `${encoded}.${sign(encoded)}`;
 }

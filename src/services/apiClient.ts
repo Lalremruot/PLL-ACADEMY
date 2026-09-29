@@ -9,6 +9,69 @@ export interface SessionUser {
   parentLoginId?: string;
   assignedBatch?: string;
   assignedLocationId?: string;
+  /**
+   * True for the credential-free showcase session from /api/auth/demo.
+   *
+   * Such a session is refused by every academy API; the app serves a fictional
+   * dataset from the browser instead (src/demo). See installDemoSandbox.
+   */
+  isDemo?: boolean;
+}
+
+export type DemoRole = 'admin' | 'manager' | 'parent';
+
+/**
+ * The demo credentials this deployment publishes, so the login screen can
+ * display and one-tap fill them. Only present when the demo is enabled.
+ */
+export interface DemoAccounts {
+  admin?: { email: string; password: string };
+  manager?: { email: string; password: string };
+  parent?: { parentLoginId: string };
+}
+
+export interface DemoAvailability {
+  enabled: boolean;
+  accounts: DemoAccounts;
+}
+
+const DEMO_UNAVAILABLE: DemoAvailability = { enabled: false, accounts: {} };
+
+/**
+ * Whether this deployment offers the demo logins, and with which credentials.
+ * The login screen hides its demo panel when this is false, which is the default.
+ */
+export async function apiDemoAvailability(): Promise<DemoAvailability> {
+  try {
+    const res = await fetch('/api/auth/demo');
+    const data = await res.json();
+    if (!res.ok || !data.success || !data.data?.enabled) {
+      return DEMO_UNAVAILABLE;
+    }
+    return { enabled: true, accounts: data.data.accounts ?? {} };
+  } catch {
+    return DEMO_UNAVAILABLE;
+  }
+}
+
+/**
+ * Starts a demo session. Send `{ role }` for a one-click login, or the
+ * credentials to have the server verify them. Either way the cookie is flagged
+ * `isDemo` and every academy API refuses it.
+ */
+export async function apiLoginDemo(
+  input: ({ role: DemoRole } | { email: string; password: string; role?: 'admin' | 'manager' }) | { parentLoginId: string }
+): Promise<SessionUser> {
+  const res = await fetch('/api/auth/demo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.error || 'Could not start the demo session');
+  }
+  return data.data;
 }
 
 export interface StaffAccount {

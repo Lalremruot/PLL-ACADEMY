@@ -62,7 +62,9 @@ import {
   apiFetchManagerAssignments,
   apiFetchMe,
   apiLogout,
+  type SessionUser,
 } from './services/apiClient';
+import { installDemoSandbox, uninstallDemoSandbox } from './demo/demoSandbox';
 
 type ConsoleTab =
   | 'ledger'
@@ -74,16 +76,20 @@ type ConsoleTab =
   | 'reports'
   | 'settings';
 
-interface SessionUser {
-  email: string;
-  role: UserRole;
-  name?: string;
-  subscriptionId?: string;
-  studentName?: string;
-  parentLoginId?: string;
-  assignedBatch?: string;
-  assignedLocationId?: string;
-}
+/**
+ * Routes a demo session's API traffic at the browser-local academy in src/demo.
+ *
+ * Must be called before the first data fetch for that session — after it, every
+ * `fetch('/api/...')` is answered from the in-memory dataset. The session is
+ * rejected server-side too, so this is a usability layer, not the guarantee.
+ */
+const activateDemoSandbox = (user: SessionUser): void => {
+  installDemoSandbox({
+    role: user.role,
+    email: user.email,
+    assignedBatch: user.assignedBatch,
+  });
+};
 
 /**
  * Root client application shell with role-locked consoles and permission gates.
@@ -109,6 +115,9 @@ export default function App() {
   useEffect(() => {
     apiFetchMe()
       .then((user) => {
+        // A demo session must have its sandbox in place before any component
+        // fetches, so it is installed here rather than in an effect.
+        if (user.isDemo) activateDemoSandbox(user);
         setLoggedInUser(user);
       })
       .catch(() => {
@@ -120,6 +129,7 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (user: SessionUser): void => {
+    if (user.isDemo) activateDemoSandbox(user);
     setLoggedInUser(user);
     setAdminTab(user.role === 'manager' ? 'attendance' : 'ledger');
     loadAllData();
@@ -127,6 +137,8 @@ export default function App() {
 
   const handleLogout = async (): Promise<void> => {
     try {
+      // Uninstall first so the real logout request is not intercepted.
+      uninstallDemoSandbox();
       await apiLogout();
     } catch {
       // Session cookie may already be gone; clear local state regardless.
@@ -443,6 +455,22 @@ export default function App() {
   return (
     <div className="min-h-screen bg-brand-bg text-brand-ink font-sans selection:bg-brand-blue selection:text-black antialiased">
       <header className="safe-area-top sticky top-0 z-40 border-b border-brand-border bg-brand-bg/95 backdrop-blur-md">
+        {loggedInUser.isDemo && (
+          <div
+            role="status"
+            className="border-b border-brand-gold/30 bg-brand-gold/10"
+          >
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-2 gap-y-1 px-4 py-1.5 sm:px-6">
+              <span className="rounded-xs bg-brand-gold px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-widest text-black">
+                Demo Mode
+              </span>
+              <span className="font-sans text-[11px] text-gray-300">
+                Fictional academy — this data lives only in your browser and is never sent to or
+                loaded from the real database. Payments and check-ins are simulated.
+              </span>
+            </div>
+          </div>
+        )}
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
             <img

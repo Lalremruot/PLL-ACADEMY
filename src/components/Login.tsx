@@ -1,29 +1,33 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2, AlertCircle, RefreshCw, KeyRound, ShieldCheck
+  Mail, Lock, Eye, EyeOff, LogIn, CheckCircle2, AlertCircle, RefreshCw, KeyRound, ShieldCheck, Sparkles
 } from 'lucide-react';
 import type { UserRole } from '../types';
-import { apiLogin, apiLoginParent } from '../services/apiClient';
+import { apiDemoAvailability, apiLogin, apiLoginDemo, apiLoginParent, type DemoAccounts, type DemoRole, type SessionUser } from '../services/apiClient';
 
 interface LoginProps {
-  onLoginSuccess: (user: {
-    email: string;
-    role: UserRole;
-    name?: string;
-    subscriptionId?: string;
-    studentName?: string;
-    parentLoginId?: string;
-  }) => void;
+  onLoginSuccess: (user: SessionUser) => void;
   /** When true, hides the role tabs and shows only the passwordless parent login. */
   parentOnly?: boolean;
 }
+
+/** Compact play triangle for the demo buttons. */
+const PlayGlyph = (): React.ReactElement => (
+  <svg viewBox="0 0 12 12" className="h-3 w-3 fill-current" aria-hidden="true">
+    <path d="M3 1.5 L10 6 L3 10.5 Z" />
+  </svg>
+);
 
 /**
  * Role-based login for admin, manager, and parent portals. Admin and manager
  * credentials are provisioned by the system (the primary admin ships via
  * environment variables); parents sign in passwordlessly with their issued ID.
+ *
+ * When the deployment sets DEMO_LOGIN_ENABLED=true, a one-click showcase panel
+ * offers each role without credentials. Those sessions browse a fictional
+ * academy held in the browser (src/demo) and are refused by every real API.
  */
 export default function Login({ onLoginSuccess, parentOnly = false }: LoginProps) {
   const [activeTab, setActiveTab] = useState<UserRole>(parentOnly ? 'parent' : 'admin');
@@ -34,6 +38,79 @@ export default function Login({ onLoginSuccess, parentOnly = false }: LoginProps
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [demoAccounts, setDemoAccounts] = useState<DemoAccounts>({});
+  const [demoRole, setDemoRole] = useState<DemoRole | null>(null);
+
+  // Probed once so the demo panel is absent unless the deployment opted in.
+  useEffect(() => {
+    let cancelled = false;
+    apiDemoAvailability()
+      .then((result) => {
+        if (cancelled) return;
+        setDemoEnabled(result.enabled);
+        setDemoAccounts(result.accounts);
+      })
+      .catch(() => {
+        if (!cancelled) setDemoEnabled(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const finishLogin = (user: SessionUser, message: string): void => {
+    setSuccessMsg(message);
+    setTimeout(() => onLoginSuccess(user), 700);
+  };
+
+  /**
+   * Fills the credentials form with a demo account and submits it, so a visitor
+   * can see the credentials work through the same path a real login takes.
+   */
+  const handleDemoPrefill = (role: DemoRole): void => {
+    setErrorMsg('');
+    setSuccessMsg('');
+    if (role === 'parent') {
+      const id = demoAccounts.parent?.parentLoginId ?? '';
+      setActiveTab('parent');
+      setParentLoginId(id);
+      if (!id) return;
+      setDemoRole('parent');
+      apiLoginDemo({ parentLoginId: id })
+        .then((user) =>
+          finishLogin(
+            user,
+            `Welcome to the demo, ${user.name || 'parent'}! Viewing ${user.studentName || 'your child'}'s stats.`
+          )
+        )
+        .catch((err: unknown) => {
+          setErrorMsg(err instanceof Error ? err.message : 'Could not start the demo session');
+          setDemoRole(null);
+        });
+      return;
+    }
+
+    const account = demoAccounts[role];
+    if (!account) return;
+    setActiveTab(role);
+    setEmail(account.email);
+    setPassword(account.password);
+    setDemoRole(role);
+    apiLoginDemo({ email: account.email, password: account.password, role })
+      .then((user) =>
+        finishLogin(
+          user,
+          role === 'manager'
+            ? 'Demo manager access granted. Opening the Manager Console...'
+            : 'Demo admin access granted. Opening the Admin Console...'
+        )
+      )
+      .catch((err: unknown) => {
+        setErrorMsg(err instanceof Error ? err.message : 'Could not start the demo session');
+        setDemoRole(null);
+      });
+  };
 
   const handleSubmit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
@@ -53,14 +130,7 @@ export default function Login({ onLoginSuccess, parentOnly = false }: LoginProps
             : `Welcome back, ${user.name || 'Parent'}! Viewing ${user.studentName || 'your child'}'s stats. Redirecting...`
       );
       setTimeout(() => {
-        onLoginSuccess({
-          email: user.email,
-          role: user.role,
-          name: user.name,
-          subscriptionId: user.subscriptionId,
-          studentName: user.studentName,
-          parentLoginId: user.parentLoginId,
-        });
+        onLoginSuccess(user);
         setLoading(false);
       }, 800);
     } catch (err: unknown) {
@@ -125,6 +195,62 @@ export default function Login({ onLoginSuccess, parentOnly = false }: LoginProps
       </div>
 
       <main className="relative z-10 w-full max-w-md px-4 sm:px-6 py-8 sm:py-12 mx-auto">
+        {demoEnabled && (
+          <div className="mb-6 rounded-lg border border-brand-gold/30 bg-brand-gold/5 p-4">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-brand-gold" />
+              <h2 className="font-sans text-xs font-bold uppercase tracking-wider text-brand-gold">
+                Try the demo
+              </h2>
+            </div>
+            <p className="mt-1.5 font-sans text-[11px] leading-relaxed text-gray-400">
+              Explore a fictional academy with sample students, invoices and attendance. Nothing
+              here reads or writes real academy records — the data lives in your browser.
+            </p>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              {(['admin', 'manager', 'parent'] as DemoRole[]).map((role) => (
+                <button
+                  key={role}
+                  type="button"
+                  onClick={() => handleDemoPrefill(role)}
+                  disabled={demoRole !== null}
+                  className="flex items-center justify-center gap-1.5 rounded-xs border border-brand-gold/30 bg-brand-charcoal px-2 py-2.5 font-sans text-[10px] font-bold uppercase tracking-wider text-gray-200 transition-colors hover:border-brand-gold hover:bg-brand-gold/10 hover:text-brand-gold disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {demoRole === role ? (
+                    <RefreshCw className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <PlayGlyph />
+                  )}
+                  {role}
+                </button>
+              ))}
+            </div>
+            <dl className="mt-3 space-y-1 border-t border-brand-gold/20 pt-3 font-mono text-[10px]">
+              {demoAccounts.admin && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="shrink-0 text-gray-500">ADMIN</dt>
+                  <dd className="truncate text-gray-300">
+                    {demoAccounts.admin.email} / {demoAccounts.admin.password}
+                  </dd>
+                </div>
+              )}
+              {demoAccounts.manager && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="shrink-0 text-gray-500">MANAGER</dt>
+                  <dd className="truncate text-gray-300">
+                    {demoAccounts.manager.email} / {demoAccounts.manager.password}
+                  </dd>
+                </div>
+              )}
+              {demoAccounts.parent && (
+                <div className="flex items-baseline justify-between gap-2">
+                  <dt className="shrink-0 text-gray-500">PARENT ID</dt>
+                  <dd className="truncate text-gray-300">{demoAccounts.parent.parentLoginId}</dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
         <div className="flex flex-col items-center mb-8 text-center">
           <img
             src="/pll-logo.png"
