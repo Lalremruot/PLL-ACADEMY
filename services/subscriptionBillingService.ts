@@ -30,6 +30,17 @@ function todayKey(): string {
   return toDateKey(new Date());
 }
 
+/**
+ * The deadline this cycle was billed against. An auto-debit charge always fires
+ * on or after `nextBillingDate`, so that date is the real due date — copying the
+ * payment day into `dueDate` instead made every settled receipt show a due date
+ * identical to its payment date. A first mandate payment (billed ahead of the
+ * next cycle) falls back to the day it was taken.
+ */
+function cycleDueDate(sub: Subscription, today: string): string {
+  return sub.nextBillingDate && sub.nextBillingDate <= today ? sub.nextBillingDate : today;
+}
+
 export async function settleSubscriptionCycle(
   subscriptionId: string,
   paymentId: string,
@@ -73,8 +84,9 @@ export async function settleSubscriptionCycle(
       amount: sub.monthlyFee,
       courseName: sub.courseName,
       date: toDateKey(now),
-      dueDate: toDateKey(now),
+      dueDate: cycleDueDate(sub, toDateKey(now)),
       status: 'Success',
+      paidAt: toDateKey(now),
       transactionId: paymentId,
       semester: monthName,
     });
@@ -115,7 +127,9 @@ async function recordFailedCycle(sub: Subscription, reason: string): Promise<voi
     amount: sub.monthlyFee,
     courseName: sub.courseName,
     date: todayKey(),
-    dueDate: todayKey(),
+    // A failed charge is precisely the case where the deadline still matters:
+    // the cycle was due on the billing date and the debit did not clear.
+    dueDate: cycleDueDate(sub, todayKey()),
     status: 'Failed',
     semester: `${monthName} (auto-debit: ${reason.slice(0, 40)})`,
   });

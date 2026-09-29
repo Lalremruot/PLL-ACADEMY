@@ -13,9 +13,13 @@ export interface Invoice {
   parentEmail: string;
   amount: number;
   courseName: string;
+  /** Invoice / issue date (YYYY-MM-DD). Also the billing-month key for reports. */
   date: string;
+  /** Payment deadline (YYYY-MM-DD). Meaningful only while the invoice is unpaid. */
   dueDate: string;
   status: PaymentStatus;
+  /** Date the payment actually settled (YYYY-MM-DD). Set when status becomes Success. */
+  paidAt?: string;
   transactionId?: string; // e.g., TXN-9201-B
   semester: string;
 }

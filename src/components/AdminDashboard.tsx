@@ -5,7 +5,7 @@ import {
   ArrowUpRight, BookOpen, Trash2, X, Info, AlertTriangle, ChevronDown
 } from 'lucide-react';
 import { Invoice, Subscription, FilmCourse } from '../types';
-import { formatDisplayDate } from '../utils/attendance-dates';
+import { formatDateKey, formatDisplayDate, shiftDateKey } from '../utils/attendance-dates';
 
 interface AdminDashboardProps {
   invoices: Invoice[];
@@ -116,8 +116,8 @@ export default function AdminDashboard({
     }
 
     const selectedCourse = courses[formData.courseIndex] || courses[0] || { name: 'Academy Training Plan', monthlyFee: 300 };
-    const today = new Date().toISOString().split('T')[0];
-    const inTwoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const today = formatDateKey(new Date());
+    const inTwoWeeks = shiftDateKey(today, 14);
 
     onAddInvoice({
       studentName: formData.studentName,
@@ -128,6 +128,9 @@ export default function AdminDashboard({
       date: today,
       dueDate: inTwoWeeks,
       status: formData.status,
+      // Recorded up front so a receipt raised as already-paid still carries the
+      // day the money came in, instead of a due date standing in for it.
+      paidAt: formData.status === 'Success' ? today : undefined,
       semester: formData.semester,
       transactionId: formData.status === 'Success' ? `TXN-GEN-${Math.floor(1000 + Math.random() * 9000)}-MF` : undefined
     });

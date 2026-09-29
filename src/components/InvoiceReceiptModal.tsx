@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { X, Printer, Download, CheckCircle, AlertTriangle, Clock, Trophy, Award, IndianRupee } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { getInvoicePaidAt, hasOpenDueDate } from '../utils/invoice-dates';
 import { downloadReceiptPdf } from '../utils/receipt-pdf';
 
 interface InvoiceReceiptModalProps {
@@ -15,6 +16,14 @@ interface InvoiceReceiptModalProps {
 
 export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hideAmounts = false }: InvoiceReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
+
+  // A settled invoice prints the day the payment landed; anything still owed
+  // prints the deadline. Printing both is what made the due date look like a
+  // duplicate of the payment date on official receipts.
+  const paidOn = formatDisplayDate(getInvoicePaidAt(invoice));
+  const deadlineRow = hasOpenDueDate(invoice)
+    ? `<div class="row"><span class="bold">Due Date:</span><span>${formatDisplayDate(invoice.dueDate)}</span></div>`
+    : `<div class="row"><span class="bold">Paid On:</span><span>${paidOn}</span></div>`;
 
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
@@ -57,7 +66,7 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hi
                 </div>
                 <div class="row"><span class="bold">Invoice ID:</span><span>${invoice.id}</span></div>
                 <div class="row"><span class="bold">Date Issued:</span><span>${formatDisplayDate(invoice.date)}</span></div>
-                <div class="row"><span class="bold">Due Date:</span><span>${formatDisplayDate(invoice.dueDate)}</span></div>
+                ${deadlineRow}
                 <div class="row"><span class="bold">Status:</span><span>${invoice.status.toUpperCase()}</span></div>
                 ${invoice.transactionId ? `<div class="row"><span class="bold">Transaction ID:</span><span>${invoice.transactionId}</span></div>` : ''}
                 <div class="divider"></div>
@@ -128,6 +137,9 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hi
                 )}
                 <p className="mt-2 font-mono text-xs text-gray-500">
                   Ref ID: {invoice.transactionId || 'TXN-AUTO-9201'}
+                </p>
+                <p className="mt-1 font-mono text-xs text-brand-emerald/80">
+                  Paid on {paidOn}
                 </p>
               </>
             )}
@@ -222,7 +234,11 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hi
             {/* Timestamps */}
             <div className="flex justify-between font-mono text-xs text-gray-500 py-1">
               <span>Issued: {formatDisplayDate(invoice.date)}</span>
-              <span>Due Date: {formatDisplayDate(invoice.dueDate)}</span>
+              {hasOpenDueDate(invoice) ? (
+                <span>Due Date: {formatDisplayDate(invoice.dueDate)}</span>
+              ) : (
+                <span>Paid On: {paidOn}</span>
+              )}
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ export interface IInvoice extends Document {
   date: string;
   dueDate: string;
   status: 'Success' | 'Failed' | 'Pending';
+  paidAt?: string;
   transactionId?: string;
   semester: string;
   createdAt?: Date;
@@ -27,6 +28,7 @@ const InvoiceSchema: Schema = new Schema(
     date: { type: String, required: true },
     dueDate: { type: String, required: true },
     status: { type: String, enum: ['Success', 'Failed', 'Pending'], required: true },
+    paidAt: { type: String },
     transactionId: { type: String },
     semester: { type: String, required: true },
   },

@@ -2,8 +2,32 @@ import { connectToDatabase } from '@/lib/mongodb';
 import { InvoiceModel, IInvoice } from '@/models/Invoice';
 import { INITIAL_INVOICES } from '@/src/seedData';
 import { Invoice } from '@/src/types';
+import { formatDateKey } from '@/src/utils/attendance-dates';
 
 let memoryInvoices: Invoice[] = [...INITIAL_INVOICES];
+
+/** Local YYYY-MM-DD for "now". `toISOString()` would roll back a day east of UTC. */
+function todayKey(): string {
+  return formatDateKey(new Date());
+}
+
+/** Strips the Mongoose document down to the client-facing invoice shape. */
+function toInvoice(doc: IInvoice): Invoice {
+  return {
+    id: doc.id,
+    studentName: doc.studentName,
+    parentName: doc.parentName,
+    parentEmail: doc.parentEmail,
+    amount: doc.amount,
+    courseName: doc.courseName,
+    date: doc.date,
+    dueDate: doc.dueDate,
+    status: doc.status as any,
+    paidAt: doc.paidAt,
+    transactionId: doc.transactionId,
+    semester: doc.semester,
+  };
+}
 
 /**
  * Writes any in-memory fallback records into Mongo once it is reachable again.
@@ -28,25 +52,15 @@ export async function getAllInvoices(): Promise<Invoice[]> {
       await InvoiceModel.insertMany(INITIAL_INVOICES);
     }
     const docs = await InvoiceModel.find({}).sort({ createdAt: -1 }).lean();
-    return docs.map(doc => ({
-      id: doc.id,
-      studentName: doc.studentName,
-      parentName: doc.parentName,
-      parentEmail: doc.parentEmail,
-      amount: doc.amount,
-      courseName: doc.courseName,
-      date: doc.date,
-      dueDate: doc.dueDate,
-      status: doc.status as any,
-      transactionId: doc.transactionId,
-      semester: doc.semester,
-    }));
+    return docs.map(doc => toInvoice(doc as IInvoice));
   }
 
   return memoryInvoices;
 }
 
 export async function createInvoice(invoiceData: Partial<Invoice>): Promise<Invoice> {
+  const today = todayKey();
+  const status = invoiceData.status || 'Pending';
   const newInvoice: Invoice = {
     id: invoiceData.id || `INV-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`,
     studentName: invoiceData.studentName || 'Student Athlete',
@@ -54,9 +68,12 @@ export async function createInvoice(invoiceData: Partial<Invoice>): Promise<Invo
     parentEmail: invoiceData.parentEmail || 'parent@footballmail.com',
     amount: invoiceData.amount || 350,
     courseName: invoiceData.courseName || 'Academy Masterclass',
-    date: invoiceData.date || new Date().toISOString().split('T')[0],
-    dueDate: invoiceData.dueDate || new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-    status: invoiceData.status || 'Pending',
+    date: invoiceData.date || today,
+    dueDate: invoiceData.dueDate || formatDateKey(new Date(Date.now() + 14 * 86400000)),
+    status,
+    // An invoice created already settled has no payment window left, so the day
+    // it was raised IS the day it was paid.
+    paidAt: status === 'Success' ? invoiceData.paidAt || invoiceData.date || today : undefined,
     transactionId: invoiceData.transactionId,
     semester: invoiceData.semester || 'Summer 2026',
   };
@@ -75,29 +92,31 @@ export async function createInvoice(invoiceData: Partial<Invoice>): Promise<Invo
 export async function payInvoice(invoiceId: string, transactionId?: string): Promise<Invoice | null> {
   const txnId = transactionId || `TXN-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
 
+  // A settled invoice needs the day the money actually landed. Without it the
+  // receipt can only show the issue date, which reads as a due date equal to the
+  // payment date. Never overwrite a date a gateway already reported.
+  const paidAt = todayKey();
+
   const db = await connectToDatabase();
   if (db) {
     await flushPendingInvoices();
+    const current = await InvoiceModel.findOne({ id: invoiceId }).lean();
+    if (!current) return null;
+
     const updated = await InvoiceModel.findOneAndUpdate(
       { id: invoiceId },
-      { $set: { status: 'Success', transactionId: txnId } },
+      {
+        $set: {
+          status: 'Success',
+          transactionId: txnId,
+          paidAt: (current as IInvoice).paidAt || paidAt,
+        },
+      },
       { new: true }
     ).lean();
 
     if (!updated) return null;
-    return {
-      id: updated.id,
-      studentName: updated.studentName,
-      parentName: updated.parentName,
-      parentEmail: updated.parentEmail,
-      amount: updated.amount,
-      courseName: updated.courseName,
-      date: updated.date,
-      dueDate: updated.dueDate,
-      status: updated.status as any,
-      transactionId: updated.transactionId,
-      semester: updated.semester,
-    };
+    return toInvoice(updated as IInvoice);
   }
 
   const index = memoryInvoices.findIndex(inv => inv.id === invoiceId);
@@ -106,6 +125,7 @@ export async function payInvoice(invoiceId: string, transactionId?: string): Pro
   memoryInvoices[index] = {
     ...memoryInvoices[index],
     status: 'Success',
+    paidAt: memoryInvoices[index].paidAt || paidAt,
     transactionId: txnId,
   };
 

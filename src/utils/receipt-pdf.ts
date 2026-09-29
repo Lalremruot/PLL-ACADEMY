@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../types';
 import { formatDisplayDate } from './attendance-dates';
+import { getInvoicePaidAt, hasOpenDueDate } from './invoice-dates';
 
 /**
  * Downloads an invoice as a nicely formatted, printable PDF receipt.
@@ -37,7 +38,13 @@ export const downloadReceiptPdf = (invoice: Invoice, hideAmounts = false): void 
 
   line('Invoice ID', invoice.id);
   line('Date Issued', formatDisplayDate(invoice.date));
-  line('Due Date', formatDisplayDate(invoice.dueDate));
+  // A settled invoice shows the payment date, not a stale deadline — printing
+  // the due date next to the payment date reads as two dates for one event.
+  if (hasOpenDueDate(invoice)) {
+    line('Due Date', formatDisplayDate(invoice.dueDate));
+  } else {
+    line('Paid On', formatDisplayDate(getInvoicePaidAt(invoice)));
+  }
   line('Status', invoice.status.toUpperCase());
   if (invoice.transactionId) line('Transaction ID', invoice.transactionId);
 
