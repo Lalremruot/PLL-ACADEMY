@@ -3,7 +3,7 @@ import { motion } from 'motion/react';
 import { X, Printer, Download, CheckCircle, AlertTriangle, Clock, Trophy, Award, IndianRupee } from 'lucide-react';
 import { Invoice } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
-import { getInvoicePaidAt, hasOpenDueDate } from '../utils/invoice-dates';
+import { getInvoicePaidAt, getInvoiceNextDueDate, hasOpenDueDate } from '../utils/invoice-dates';
 import { downloadReceiptPdf } from '../utils/receipt-pdf';
 
 interface InvoiceReceiptModalProps {
@@ -17,13 +17,16 @@ interface InvoiceReceiptModalProps {
 export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hideAmounts = false }: InvoiceReceiptModalProps) {
   const printRef = useRef<HTMLDivElement>(null);
 
-  // A settled invoice prints the day the payment landed; anything still owed
-  // prints the deadline. Printing both is what made the due date look like a
-  // duplicate of the payment date on official receipts.
+  // An unpaid invoice prints its deadline. A settled one prints when the money
+  // landed and — the number the parent and admin actually want — when the NEXT
+  // cycle falls due (one month after the payment, the same rule the billing
+  // service uses to advance nextBillingDate).
   const paidOn = formatDisplayDate(getInvoicePaidAt(invoice));
+  const nextDue = getInvoiceNextDueDate(invoice);
   const deadlineRow = hasOpenDueDate(invoice)
     ? `<div class="row"><span class="bold">Due Date:</span><span>${formatDisplayDate(invoice.dueDate)}</span></div>`
-    : `<div class="row"><span class="bold">Paid On:</span><span>${paidOn}</span></div>`;
+    : `<div class="row"><span class="bold">Paid On:</span><span>${paidOn}</span></div>
+      <div class="row"><span class="bold">Next Due Date:</span><span>${formatDisplayDate(nextDue)}</span></div>`;
 
   const handlePrint = () => {
     const printContent = printRef.current?.innerHTML;
@@ -141,6 +144,9 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hi
                 <p className="mt-1 font-mono text-xs text-brand-emerald/80">
                   Paid on {paidOn}
                 </p>
+                <p className="mt-0.5 font-mono text-xs text-gray-500">
+                  Next due on {formatDisplayDate(nextDue)}
+                </p>
               </>
             )}
 
@@ -237,7 +243,7 @@ export default function InvoiceReceiptModal({ invoice, onClose, onPaySuccess, hi
               {hasOpenDueDate(invoice) ? (
                 <span>Due Date: {formatDisplayDate(invoice.dueDate)}</span>
               ) : (
-                <span>Paid On: {paidOn}</span>
+                <span>Next Due: {formatDisplayDate(nextDue)}</span>
               )}
             </div>
           </div>

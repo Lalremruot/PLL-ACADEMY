@@ -9,7 +9,7 @@ import {
   Subscription,
 } from '../types';
 import { formatDateKey } from '../utils/attendance-dates';
-import { hasPaidFirstPayment } from '../utils/subscription-billing';
+import { hasPaidFirstPayment, nextBillingDateAfter } from '../utils/subscription-billing';
 import { buildDemoDataset, DemoDataset } from './demoData';
 
 /**
@@ -73,9 +73,29 @@ const scopedInvoices = (session: DemoSessionContext, subs: Subscription[]): Invo
   return db.invoices;
 };
 
-/** Marks an invoice settled, mirroring payInvoice's date semantics. */
+/**
+ * Marks an invoice settled, mirroring payInvoice's date semantics and its
+ * cycle advance: a manual payment moves the subscription's next billing date a
+ * month past the payment day (guarded so replaying the same settlement does not
+ * push it out again).
+ */
 function settleInvoice(invoice: Invoice, transactionId: string): Invoice {
   const paidAt = formatDateKey(new Date());
+  const student = invoice.studentName.trim().toLowerCase();
+  const course = invoice.courseName.trim().toLowerCase();
+  const parent = invoice.parentEmail.trim().toLowerCase();
+  const sub = db.subscriptions.find(
+    (s) =>
+      s.studentName.trim().toLowerCase() === student &&
+      s.courseName.trim().toLowerCase() === course &&
+      s.status === 'Active' &&
+      (!parent || !(s.parentEmail || '').trim() || (s.parentEmail || '').trim().toLowerCase() === parent)
+  );
+  if (sub && sub.nextBillingDate && sub.nextBillingDate <= paidAt) {
+    db.subscriptions = db.subscriptions.map((s) =>
+      s.id === sub.id ? { ...s, nextBillingDate: nextBillingDateAfter(paidAt) } : s
+    );
+  }
   return { ...invoice, status: 'Success', transactionId, paidAt };
 }
 
@@ -558,10 +578,7 @@ export function handleDemoApiRequest(
             `pay_demo_auto_${s.id}`
           );
           db.invoices = [settled, ...db.invoices.filter((inv) => inv.id !== settled.id)];
-          const next = new Date();
-          next.setMonth(next.getMonth() + 1);
-          const advanced: Subscription = { ...s, nextBillingDate: formatDateKey(next) };
-          db.subscriptions = db.subscriptions.map((x) => (x.id === s.id ? advanced : x));
+          const advanced: Subscription = db.subscriptions.find((x) => x.id === s.id) ?? s;
           return { subscriptionId: s.id, success: true, paymentId: settled.transactionId };
         });
       return ok(

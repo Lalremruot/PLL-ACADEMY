@@ -108,6 +108,21 @@ export const shiftDateKey = (dateKey: string, days: number): string => {
 };
 
 /**
+ * Shifts a YYYY-MM-DD date by a number of months, keeping the day of month.
+ *
+ * The day is clamped to the last day of the target month rather than rolling
+ * over: a 31 Jan payment must bill 28/29 Feb, not 3 March, and a 29 Sep payment
+ * must bill 29 Oct.
+ */
+export const shiftMonthsClamped = (dateKey: string, months: number): string => {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  if (!year || !month || !day) return dateKey;
+  const targetMonth = month - 1 + months;
+  const lastDay = new Date(year, targetMonth + 1, 0).getDate();
+  return formatDateKey(new Date(year, targetMonth, Math.min(day, lastDay)));
+};
+
+/**
  * Shifts a month anchor by months; returns YYYY-MM-01.
  */
 export const shiftMonthKey = (anchorDate: string, months: number): string => {

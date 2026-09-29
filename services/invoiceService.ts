@@ -3,6 +3,8 @@ import { InvoiceModel, IInvoice } from '@/models/Invoice';
 import { INITIAL_INVOICES } from '@/src/seedData';
 import { Invoice } from '@/src/types';
 import { formatDateKey } from '@/src/utils/attendance-dates';
+import { nextBillingDateAfter } from '@/src/utils/subscription-billing';
+import { getAllSubscriptions, updateSubscription } from '@/services/subscriptionService';
 
 let memoryInvoices: Invoice[] = [...INITIAL_INVOICES];
 
@@ -89,6 +91,39 @@ export async function createInvoice(invoiceData: Partial<Invoice>): Promise<Invo
   return newInvoice;
 }
 
+/**
+ * Moves the athlete's billing cycle on when a manual payment covers it.
+ *
+ * An invoice paid outside auto-debit still settles the month it was paid in, so
+ * the next charge is a month after the payment. Without this the subscription
+ * kept whatever `nextBillingDate` it was enrolled with: a family paying on 29
+ * Sep would still be listed as due on the old date, and an auto-debit mandate
+ * would charge them a second time for a month they had already paid.
+ *
+ * Guarded on the payment covering the current cycle, which keeps it idempotent
+ * across the client-verify and webhook calls for one payment, and leaves the
+ * upcoming cycle alone when old arrears are settled.
+ */
+async function advanceBillingCycleFor(invoice: Invoice, paidAt: string): Promise<void> {
+  const subs = await getAllSubscriptions();
+  const student = invoice.studentName.trim().toLowerCase();
+  const course = invoice.courseName.trim().toLowerCase();
+  const parent = invoice.parentEmail.trim().toLowerCase();
+  const sub = subs.find((s) => {
+    if (s.studentName.trim().toLowerCase() !== student) return false;
+    if (s.courseName.trim().toLowerCase() !== course) return false;
+    // Two families can share a player's name; only join the cycle for the one
+    // that matches the billing email whenever both sides carry one.
+    const subParent = (s.parentEmail || '').trim().toLowerCase();
+    return !parent || !subParent || parent === subParent;
+  });
+  if (!sub) return;
+  if (!sub.nextBillingDate || sub.nextBillingDate > paidAt) return;
+  if (sub.status !== 'Active') return;
+
+  await updateSubscription({ ...sub, nextBillingDate: nextBillingDateAfter(paidAt) });
+}
+
 export async function payInvoice(invoiceId: string, transactionId?: string): Promise<Invoice | null> {
   const txnId = transactionId || `TXN-${Math.floor(1000 + Math.random() * 9000)}-${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`;
 
@@ -116,7 +151,9 @@ export async function payInvoice(invoiceId: string, transactionId?: string): Pro
     ).lean();
 
     if (!updated) return null;
-    return toInvoice(updated as IInvoice);
+    const settled = toInvoice(updated as IInvoice);
+    await advanceBillingCycleFor(settled, settled.paidAt || paidAt);
+    return settled;
   }
 
   const index = memoryInvoices.findIndex(inv => inv.id === invoiceId);
@@ -129,6 +166,7 @@ export async function payInvoice(invoiceId: string, transactionId?: string): Pro
     transactionId: txnId,
   };
 
+  await advanceBillingCycleFor(memoryInvoices[index], paidAt);
   return memoryInvoices[index];
 }
 

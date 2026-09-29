@@ -1,4 +1,5 @@
 import { Invoice, Subscription } from '../types';
+import { shiftMonthsClamped } from './attendance-dates';
 
 const norm = (value: string | undefined): string => (value || '').trim().toLowerCase();
 
@@ -31,3 +32,18 @@ export const hasPaidFirstPayment = (
     return !parent || !invParent || parent === invParent;
   });
 };
+
+/**
+ * The billing date for the cycle after a payment made on `paidOn`.
+ *
+ * A payment settles the month it was made in, so the next charge is one month
+ * from that day — never one month from the previous billing date, which
+ * compounded any prior drift into a multi-month gap. The day is clamped to the
+ * target month's length, so a 29 Sep payment bills 29 Oct and a 31 Jan payment
+ * bills the last day of Feb rather than spilling into March.
+ *
+ * Shared by the billing service (advancing a subscription's cycle) and the
+ * receipt/ledger UI (quoting the next due date for a settled invoice), so the
+ * two can never disagree.
+ */
+export const nextBillingDateAfter = (paidOn: string): string => shiftMonthsClamped(paidOn, 1);

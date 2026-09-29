@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { Invoice, Subscription, FilmCourse } from '../types';
 import { formatDateKey, formatDisplayDate, shiftDateKey } from '../utils/attendance-dates';
+import { getInvoiceNextDueDate } from '../utils/invoice-dates';
 
 interface AdminDashboardProps {
   invoices: Invoice[];
@@ -483,7 +484,7 @@ export default function AdminDashboard({
                   </div>
 
                   <div className="mt-3 pt-2 border-t border-brand-border/40 flex justify-between items-center text-[10px] text-gray-500 font-mono">
-                    <span>Due: {formatDisplayDate(invoice.dueDate)}</span>
+                    <span>{invoice.status === 'Success' ? 'Next Due' : 'Due'}: {formatDisplayDate(getInvoiceNextDueDate(invoice))}</span>
                     {isAdmin && (
                       <button
                         onClick={(e) => {
@@ -513,7 +514,7 @@ export default function AdminDashboard({
                     <th className="py-3 px-4">Student</th>
                     <th className="py-3 px-4">Training Program</th>
                     <th className="py-3 px-4 font-right">Amount</th>
-                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4">Due / Next Due</th>
                     <th className="py-3 px-4 text-center">Status</th>
                     <th className="py-3 px-4 text-center">Actions</th>
                   </tr>
@@ -563,7 +564,8 @@ export default function AdminDashboard({
   {isAdmin ? `₹${invoice.amount}` : '•••'}
 </td>
                       <td className="py-4 px-4 font-mono text-gray-400">
-                        {formatDisplayDate(invoice.dueDate)}
+                        <span>{invoice.status === 'Success' ? 'Next Due' : 'Due'}: </span>
+                        {formatDisplayDate(getInvoiceNextDueDate(invoice))}
                       </td>
                       <td className="py-4 px-4 text-center">
                         <span className={`inline-block px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${

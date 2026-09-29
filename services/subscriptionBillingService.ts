@@ -2,6 +2,7 @@ import { getAllInvoices, createInvoice, payInvoice } from '@/services/invoiceSer
 import { getAllSubscriptions, updateSubscription } from '@/services/subscriptionService';
 import { chargeRecurringWithToken } from '@/services/razorpayService';
 import { Subscription } from '@/src/types';
+import { nextBillingDateAfter } from '@/src/utils/subscription-billing';
 
 /**
  * Formats a Date as YYYY-MM-DD in local time. `toISOString()` converts to UTC
@@ -12,14 +13,6 @@ function toDateKey(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
-}
-
-function addMonths(dateStr: string, months: number): string {
-  const [year, month, day] = dateStr.split('-').map(Number);
-  if (!year || !month || !day) {
-    return toDateKey(new Date(Date.now() + months * 30 * 86400000));
-  }
-  return toDateKey(new Date(year, month - 1 + months, day));
 }
 
 function monthKey(date: Date): string {
@@ -101,7 +94,7 @@ export async function settleSubscriptionCycle(
   // one month from today — not one month from the PREVIOUS billing date.
   // Advancing from the old date compounded any prior drift into a multi-month
   // gap (paying 12 Sep must set the next charge on 12 Oct, never in Nov/Dec).
-  const nextBillingDate = addMonths(todayKey(), 1);
+  const nextBillingDate = nextBillingDateAfter(todayKey());
   const updated = await updateSubscription({
     ...sub,
     nextBillingDate,

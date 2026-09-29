@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { Invoice } from '../types';
 import { formatDisplayDate } from './attendance-dates';
-import { getInvoicePaidAt, hasOpenDueDate } from './invoice-dates';
+import { getInvoicePaidAt, getInvoiceNextDueDate, hasOpenDueDate } from './invoice-dates';
 
 /**
  * Downloads an invoice as a nicely formatted, printable PDF receipt.
@@ -38,12 +38,15 @@ export const downloadReceiptPdf = (invoice: Invoice, hideAmounts = false): void 
 
   line('Invoice ID', invoice.id);
   line('Date Issued', formatDisplayDate(invoice.date));
-  // A settled invoice shows the payment date, not a stale deadline — printing
-  // the due date next to the payment date reads as two dates for one event.
+  // A settled invoice shows the payment date and the NEXT cycle's date — not the
+  // stale deadline it settled. Printing the old due date next to the payment
+  // date read as two dates for one event, and offered no answer for the number
+  // the reader actually wants: when is the next charge?
   if (hasOpenDueDate(invoice)) {
     line('Due Date', formatDisplayDate(invoice.dueDate));
   } else {
     line('Paid On', formatDisplayDate(getInvoicePaidAt(invoice)));
+    line('Next Due Date', formatDisplayDate(getInvoiceNextDueDate(invoice)));
   }
   line('Status', invoice.status.toUpperCase());
   if (invoice.transactionId) line('Transaction ID', invoice.transactionId);

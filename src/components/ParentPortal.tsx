@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Invoice, Subscription, PaymentStatus, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { getInvoiceNextDueDate } from '../utils/invoice-dates';
 import { hasPaidFirstPayment } from '../utils/subscription-billing';
 import PlayerProfileStats from './player/PlayerProfileStats';
 import AttendanceSummary from './AttendanceSummary';
@@ -752,8 +753,8 @@ export default function ParentPortal({
                       <span className="text-white text-right max-w-[200px] truncate">{invoice.courseName}</span>
                     </div>
                     <div className="flex justify-between text-xs">
-                      <span className="text-gray-400">Due Date:</span>
-                      <span className="text-gray-300 font-mono">{formatDisplayDate(invoice.dueDate)}</span>
+                      <span className="text-gray-400">{invoice.status === 'Success' ? 'Next Due Date:' : 'Due Date:'}</span>
+                      <span className="text-gray-300 font-mono">{formatDisplayDate(getInvoiceNextDueDate(invoice))}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs pt-1">
                       <span className="text-gray-400">Status:</span>
@@ -798,7 +799,7 @@ export default function ParentPortal({
                   <tr className="border-b border-brand-border bg-brand-charcoal/80 text-[10px] font-mono uppercase tracking-wider text-gray-400">
                     <th className="py-3 px-4">Invoice ID</th>
                     <th className="py-3 px-4">Curriculum Target</th>
-                    <th className="py-3 px-4">Due Date</th>
+                    <th className="py-3 px-4">Due / Next Due</th>
                     <th className="py-3 px-4">Ledger Status</th>
                     <th className="py-3 px-4 text-right">Actions</th>
                   </tr>
@@ -816,7 +817,8 @@ export default function ParentPortal({
                         <p className="font-sans text-[10px] text-gray-400">Artisan: {invoice.studentName}</p>
                       </td>
                       <td className="py-4.5 px-4 font-mono text-gray-400">
-                        {formatDisplayDate(invoice.dueDate)}
+                        <span>{invoice.status === 'Success' ? 'Next Due: ' : ''}</span>
+                        {formatDisplayDate(getInvoiceNextDueDate(invoice))}
                       </td>
                       <td className="py-4.5 px-4">
                         <span className={`inline-block px-2.5 py-0.5 rounded-xs font-mono text-[9px] font-bold uppercase ${
