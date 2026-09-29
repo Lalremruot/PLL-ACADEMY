@@ -248,12 +248,77 @@ function sanitizeRazorpayName(name?: string): string {
   return 'Academy Parent';
 }
 
+/** Razorpay allows only one customer per email or contact per merchant. */
+const CUSTOMER_PAGE_SIZE = 100;
+/** Bounded so a miss cannot walk the whole customer base on every mandate. */
+const CUSTOMER_PAGE_LIMIT = 5;
+
+interface RazorpayCustomerSummary {
+  id: string;
+  email?: string;
+  contact?: string;
+}
+
+/** Whether a Razorpay error is the duplicate-customer rejection. */
+function isDuplicateCustomerError(err: unknown): boolean {
+  const detail = (err as any)?.error?.description || (err as any)?.description || '';
+  return /customer already exists/i.test(String(detail));
+}
+
+/**
+ * Finds a merchant's existing customer by email.
+ *
+ * The list endpoint has no email filter — razorpay-node's `customers.all` passes
+ * only `count` and `skip` to the API and silently drops anything else — so an
+ * `email` argument is not a lookup, it is the first page of the merchant's whole
+ * customer list. Any customer past that page looked like it did not exist, and
+ * the subsequent create then failed with "Customer already exists for the
+ * merchant". Page through instead, and stop as soon as the list runs out.
+ */
+async function findRazorpayCustomerByEmail(
+  client: Razorpay,
+  email: string
+): Promise<RazorpayCustomerSummary | null> {
+  const wanted = email.trim().toLowerCase();
+
+  for (let page = 0; page < CUSTOMER_PAGE_LIMIT; page++) {
+    const listed = (await client.customers.all({
+      count: CUSTOMER_PAGE_SIZE,
+      skip: page * CUSTOMER_PAGE_SIZE,
+    } as any)) as { items?: RazorpayCustomerSummary[] };
+
+    const items = listed?.items || [];
+    const match = items.find(
+      (c) => c.email && c.email.trim().toLowerCase() === wanted
+    );
+    if (match) return match;
+    if (items.length < CUSTOMER_PAGE_SIZE) break;
+  }
+
+  return null;
+}
+
+/**
+ * A stale customer with no `contact` blocks the recurring (e-mandate) order —
+ * Razorpay rejects it with "contact field is required for recurring links" — so
+ * back-fill the phone when we have one.
+ */
+async function ensureCustomerContact(
+  client: Razorpay,
+  customer: RazorpayCustomerSummary,
+  contact?: string
+): Promise<string> {
+  if (contact && !customer.contact) {
+    await client.customers.edit(customer.id, { contact } as any);
+  }
+  return customer.id;
+}
+
 /**
  * Returns the Razorpay customer id for a parent, creating the customer when it
- * does not exist yet. Idempotent: a parent with the same email is looked up
- * first and reused — but if that existing customer has no `contact`, the
- * recurring (e-mandate) order is rejected ("contact field is required for
- * recurring links"), so we patch the missing phone onto it before returning.
+ * does not exist yet. Idempotent in both directions: an existing customer is
+ * reused rather than re-created, and the create itself is asked to return the
+ * existing record instead of failing.
  */
 export async function ensureRazorpayCustomer(input: {
   name?: string;
@@ -268,31 +333,37 @@ export async function ensureRazorpayCustomer(input: {
   const name = sanitizeRazorpayName(input.name);
 
   if (input.email) {
-    // customers.all accepts an `email` filter at runtime even though the SDK
-    // types only surface pagination options, so cast the params and result.
-    const existing = (await client.customers.all({ email: input.email, count: 10 } as any)) as {
-      items?: Array<{ id: string; email?: string; contact?: string }>;
-    };
-    const match = existing?.items?.find(
-      (c) => c.email && c.email.toLowerCase() === (input.email as string).toLowerCase()
-    );
-    if (match) {
-      // A stale customer without a phone (e.g. created by an earlier bug) would
-      // block the e-mandate order. Back-fill the contact in that case.
-      if (input.contact && !match.contact) {
-        await client.customers.edit(match.id, { contact: input.contact } as any);
-      }
-      return match.id;
+    const existing = await findRazorpayCustomerByEmail(client, input.email);
+    if (existing) {
+      return ensureCustomerContact(client, existing, input.contact);
     }
   }
 
-  const customer = await client.customers.create({
-    name,
-    email: input.email || undefined,
-    contact: input.contact || undefined,
-    fail_existing: 0,
-  });
-  return customer.id;
+  try {
+    const customer = await client.customers.create({
+      name,
+      email: input.email || undefined,
+      contact: input.contact || undefined,
+      // One customer per email/contact per merchant: a second create is rejected
+      // with "Customer already exists for the merchant" unless fail_existing=0,
+      // which returns the existing record instead. It must go out as the STRING
+      // "0" — sent as a JSON number the gateway ignores it and fails the create
+      // (razorpay-node >= 2.9.2 dropped the boolean coercion this relied on).
+      fail_existing: '0' as unknown as boolean,
+    });
+    return customer.id;
+  } catch (err: unknown) {
+    // Still land on an existing record rather than stranding the parent on a
+    // failed mandate setup — the gateway can match a duplicate the lookup did
+    // not see (e.g. on contact alone).
+    if (input.email && isDuplicateCustomerError(err)) {
+      const existing = await findRazorpayCustomerByEmail(client, input.email);
+      if (existing) {
+        return ensureCustomerContact(client, existing, input.contact);
+      }
+    }
+    throw err;
+  }
 }
 
 export async function createRazorpaySubscriptionOrder(input: {
