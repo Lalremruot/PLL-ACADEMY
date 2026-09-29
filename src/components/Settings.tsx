@@ -1185,7 +1185,7 @@ export default function Settings({
                                     )}
                                   </div>
                                   <p className="font-mono text-[10px] text-gray-500 mt-1 truncate">
-                                    {row.id} · ₹{row.monthlyFee}/mo · next {row.nextBillingDate} · {row.status}
+                                    {row.id} · ₹{row.monthlyFee}/mo · {row.hasPaid ? `next ${row.nextBillingDate} · ` : ''}{row.status}
                                   </p>
                                 </div>
 

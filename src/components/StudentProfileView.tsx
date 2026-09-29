@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Subscription, Invoice, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { hasPaidFirstPayment } from '../utils/subscription-billing';
 import PlayerProfileStats from './player/PlayerProfileStats';
 import ProfilePicUpload from './ProfilePicUpload';
 import AttendanceSummary from './AttendanceSummary';
@@ -323,7 +324,13 @@ export default function StudentProfileView({
   </span>
 </div>
             <p className="font-sans text-xs text-gray-400 mt-4">
-              Next automatic draft scheduled for <span className="font-mono text-white">{formatDisplayDate(subscription.nextBillingDate)}</span>
+              {/* nextBillingDate is stamped at enrolment, so it is only a real
+                  schedule once a first bill has actually been settled. */}
+              {hasPaidFirstPayment(subscription, displayInvoices) ? (
+                <>Next automatic draft scheduled for <span className="font-mono text-white">{formatDisplayDate(subscription.nextBillingDate)}</span></>
+              ) : (
+                <>First payment not received yet — no billing cycle started.</>
+              )}
             </p>
           </div>
 

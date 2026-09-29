@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Invoice, Subscription, PaymentStatus, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { hasPaidFirstPayment } from '../utils/subscription-billing';
 import PlayerProfileStats from './player/PlayerProfileStats';
 import AttendanceSummary from './AttendanceSummary';
 import {
@@ -304,9 +305,7 @@ export default function ParentPortal({
     // always collected by the mandate checkout itself, but to make the flow
     // coherent the parent must first settle an outstanding invoice upfront:
     // pay the first bill, then authorize the standing instruction for the rest.
-    const hasPaidForCourse = parentInvoices.some(
-      (inv) => inv.status === 'Success' && inv.courseName === sub.courseName
-    );
+    const hasPaidForCourse = hasPaidFirstPayment(sub, parentInvoices);
 
     try {
       if (!hasPaidForCourse) {
@@ -665,9 +664,14 @@ export default function ParentPortal({
                             <Sparkles className="h-3 w-3 text-brand-gold shrink-0" />
                           )}
                           <span>
+                            {/* The next-charge date is stamped at enrolment, so it
+                                only means something once the first bill is settled —
+                                before that there is no cycle to quote a date for. */}
                             {sub.autoDebit
                               ? <>Auto-debit active — next charge <strong className="text-white font-mono">{formatDisplayDate(sub.nextBillingDate)}</strong></>
-                              : <>Next billing dispatch scheduled for <strong className="text-white font-mono">{formatDisplayDate(sub.nextBillingDate)}</strong></>}
+                              : hasPaidFirstPayment(sub, parentInvoices)
+                                ? <>Next billing dispatch scheduled for <strong className="text-white font-mono">{formatDisplayDate(sub.nextBillingDate)}</strong></>
+                                : <>First payment not received yet — no billing cycle started.</>}
                           </span>
                         </div>
 

@@ -2,6 +2,8 @@ import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/authGuard';
 import { getRazorpayPublicCredentials } from '@/services/razorpayService';
 import { getAllSubscriptions } from '@/services/subscriptionService';
+import { getAllInvoices } from '@/services/invoiceService';
+import { hasPaidFirstPayment } from '@/src/utils/subscription-billing';
 import {
   attachSimulatedMandate,
   disableAutoDebit,
@@ -31,10 +33,11 @@ export async function GET(req: NextRequest) {
   if ('response' in auth) return auth.response;
 
   try {
-    const [creds, subs, due] = await Promise.all([
+    const [creds, subs, due, invoices] = await Promise.all([
       getRazorpayPublicCredentials(),
       getAllSubscriptions(),
       getDueAutoDebitSubscriptions(),
+      getAllInvoices(),
     ]);
     const dueIds = new Set(due.map((s) => s.id));
 
@@ -53,6 +56,9 @@ export async function GET(req: NextRequest) {
           simulated: isSimulatedMandate(s),
           hasToken: Boolean(s.razorpayTokenId),
           nextBillingDate: s.nextBillingDate,
+          // nextBillingDate is stamped at enrolment, so the console reports it
+          // only for players who have actually settled a first bill.
+          hasPaid: hasPaidFirstPayment(s, invoices),
           due: dueIds.has(s.id),
         })),
       },

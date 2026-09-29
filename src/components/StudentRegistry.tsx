@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Subscription, Invoice, FilmCourse } from '../types';
 import { formatDisplayDate } from '../utils/attendance-dates';
+import { hasPaidFirstPayment } from '../utils/subscription-billing';
 import ProfilePicUpload from './ProfilePicUpload';
 
 interface StudentRegistryProps {
@@ -367,7 +368,9 @@ export default function StudentRegistry({
       sub.status,
       sub.tier,
       ...(isManager ? [] : [sub.monthlyFee]),
-      formatDisplayDate(sub.nextBillingDate)
+      // The billing date exists from enrolment, so it is only reported for a
+      // player who has actually settled a first bill.
+      hasPaidFirstPayment(sub, invoices) ? formatDisplayDate(sub.nextBillingDate) : 'Not yet paid'
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8," 

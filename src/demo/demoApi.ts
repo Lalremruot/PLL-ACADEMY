@@ -9,6 +9,7 @@ import {
   Subscription,
 } from '../types';
 import { formatDateKey } from '../utils/attendance-dates';
+import { hasPaidFirstPayment } from '../utils/subscription-billing';
 import { buildDemoDataset, DemoDataset } from './demoData';
 
 /**
@@ -590,6 +591,7 @@ export function handleDemoApiRequest(
             simulated: false,
             hasToken: Boolean(s.razorpayTokenId),
             nextBillingDate: s.nextBillingDate,
+            hasPaid: hasPaidFirstPayment(s, db.invoices),
             due: s.nextBillingDate <= formatDateKey(new Date()),
           })),
         },

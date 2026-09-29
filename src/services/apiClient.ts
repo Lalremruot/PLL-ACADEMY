@@ -370,6 +370,8 @@ export interface AutoDebitTestRow {
   simulated: boolean;
   hasToken: boolean;
   nextBillingDate: string;
+  /** True once a first bill for this player has actually been settled. */
+  hasPaid: boolean;
   due: boolean;
 }
 
