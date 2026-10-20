@@ -48,11 +48,15 @@ export async function POST(req: NextRequest) {
     let tokenId: string | null = null;
     try {
       tokenId = await fetchRazorpayPaymentTokenId(paymentId);
-    } catch {
-      // Token lookup is best-effort; the mandate still activates without it.
+    } catch (err) {
+      return errorResponse(`Failed to retrieve mandate token: ${err instanceof Error ? err.message : 'Unknown error'}`, 500);
     }
 
-    const updated = await settleSubscriptionCycle(subscriptionId, paymentId, tokenId || undefined);
+    if (!tokenId) {
+      return errorResponse('Mandate token not found in payment. Please contact support.', 500);
+    }
+
+    const updated = await settleSubscriptionCycle(subscriptionId, paymentId, tokenId);
     if (!updated) {
       return errorResponse(`Subscription ${subscriptionId} not found`, 404);
     }

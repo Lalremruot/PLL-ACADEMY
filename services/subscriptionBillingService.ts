@@ -95,11 +95,12 @@ export async function settleSubscriptionCycle(
   // Advancing from the old date compounded any prior drift into a multi-month
   // gap (paying 12 Sep must set the next charge on 12 Oct, never in Nov/Dec).
   const nextBillingDate = nextBillingDateAfter(todayKey());
+  const newTokenId = tokenId || sub.razorpayTokenId;
   const updated = await updateSubscription({
     ...sub,
     nextBillingDate,
-    autoDebit: true,
-    razorpayTokenId: tokenId || sub.razorpayTokenId,
+    autoDebit: Boolean(newTokenId),
+    razorpayTokenId: newTokenId,
   });
 
   return updated;
@@ -132,13 +133,17 @@ async function recordFailedCycle(sub: Subscription, reason: string): Promise<voi
 export async function getDueAutoDebitSubscriptions(): Promise<Subscription[]> {
   const today = todayKey();
   const subs = await getAllSubscriptions();
-  return subs.filter(
+  const due = subs.filter(
     (s) =>
       s.status === 'Active' &&
       s.autoDebit === true &&
       Boolean(s.razorpayTokenId) &&
       s.nextBillingDate <= today
   );
+  if (due.length > 0) {
+    console.log(`[auto-debit] Found ${due.length} due subscription(s) for ${today}:`, due.map(d => `${d.id} (next: ${d.nextBillingDate})`));
+  }
+  return due;
 }
 
 /** Marks a mandate token as belonging to a simulated (non-bank) test mandate. */

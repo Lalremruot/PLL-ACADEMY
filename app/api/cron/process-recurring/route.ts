@@ -28,7 +28,10 @@ function isAuthorizedCron(req: NextRequest): boolean {
   // No secret configured means no authenticated caller is possible. Refusing is
   // the only safe reading — the alternative is an open endpoint that charges
   // every parent on demand.
-  if (!secret) return false;
+  if (!secret) {
+    console.warn('[cron] CRON_SECRET is not configured — scheduled auto-debit will not run');
+    return false;
+  }
 
   const header = req.headers.get('authorization') || '';
   const prefix = 'Bearer ';

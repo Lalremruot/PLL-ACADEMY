@@ -514,7 +514,8 @@ export async function confirmPaymentViaWebhook(bodyText: string, signature: stri
   }
 
   if (subscriptionId) {
-    await settleSubscriptionCycle(subscriptionId, payment.id);
+    const tokenId = (payment as any).token_id || null;
+    await settleSubscriptionCycle(subscriptionId, payment.id, tokenId || undefined);
     return true;
   }
 
