@@ -157,7 +157,7 @@ export function isSimulatedMandate(sub: Subscription): boolean {
 /** Runs one Razorpay token charge for a due subscription. */
 export async function processAutoDebitCharge(
   sub: Subscription
-): Promise<{ subscriptionId: string; success: boolean; paymentId?: string; error?: string }> {
+): Promise<{ subscriptionId: string; success: boolean; paymentId?: string; error?: string; detail?: string }> {
   if (!sub.razorpayTokenId) {
     return { subscriptionId: sub.id, success: false, error: 'No mandate token on file' };
   }
@@ -188,7 +188,7 @@ export async function processAutoDebitCharge(
 
 /** Processes all due auto-debit subscriptions (for cron or admin trigger). */
 export async function processAllDueAutoDebits(): Promise<
-  Array<{ subscriptionId: string; success: boolean; paymentId?: string; error?: string }>
+  Array<{ subscriptionId: string; success: boolean; paymentId?: string; error?: string; detail?: string }>
 > {
   const due = await getDueAutoDebitSubscriptions();
   const results = [];
