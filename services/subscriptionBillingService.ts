@@ -182,7 +182,9 @@ export async function processAutoDebitCharge(
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Recurring charge failed';
     await recordFailedCycle(sub, message);
-    const detail = err instanceof Error ? err.stack : JSON.stringify(err, Object.getOwnPropertyNames(err));
+    const detail = (err as any)?.razorpayDetail 
+      ? JSON.stringify((err as any).razorpayDetail, null, 2)
+      : (err instanceof Error ? err.stack : JSON.stringify(err, Object.getOwnPropertyNames(err)));
     return { subscriptionId: sub.id, success: false, error: message, detail };
   }
 }

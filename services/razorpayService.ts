@@ -447,20 +447,36 @@ export async function chargeRecurringWithToken(input: {
     },
   });
 
-  const payment = await (client.payments as any).createRecurringPayment({
-    email: input.parentEmail,
-    amount,
-    currency: 'INR',
-    order_id: order.id,
-    token: input.tokenId,
-    recurring: '1',
-    description: `Academy monthly fee — ${input.parentName || input.parentEmail}`,
-  });
+  try {
+    const payment = await (client.payments as any).createRecurringPayment({
+      email: input.parentEmail,
+      amount,
+      currency: 'INR',
+      order_id: order.id,
+      token: input.tokenId,
+      recurring: '1',
+      description: `Academy monthly fee — ${input.parentName || input.parentEmail}`,
+    });
 
-  return {
-    orderId: order.id,
-    paymentId: payment.id as string,
-  };
+    return {
+      orderId: order.id,
+      paymentId: payment.id as string,
+    };
+  } catch (err: unknown) {
+    const razorpayError = err as any;
+    const detail = {
+      statusCode: razorpayError?.statusCode,
+      error: razorpayError?.error,
+      message: razorpayError?.message,
+      description: razorpayError?.error?.description,
+      code: razorpayError?.error?.code,
+      field: razorpayError?.error?.field,
+    };
+    const errorMessage = razorpayError?.error?.description || razorpayError?.message || 'Recurring charge failed';
+    const enhancedError = new Error(errorMessage) as any;
+    enhancedError.razorpayDetail = detail;
+    throw enhancedError;
+  }
 }
 
 export function verifyPaymentSignature(input: {
