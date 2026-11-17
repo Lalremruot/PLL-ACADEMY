@@ -50,6 +50,8 @@ export interface Subscription {
   phoneNumber?: string;
   autoDebit?: boolean; // Recurring e-mandate authorized with Razorpay
   razorpayTokenId?: string; // Razorpay token backing the auto-debit mandate
+  /** Razorpay customer id the mandate token belongs to — required for subsequent charges */
+  razorpayCustomerId?: string;
   footballStats?: PlayerFootballStats;
 }
 

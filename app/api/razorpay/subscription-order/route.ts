@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createRazorpaySubscriptionOrder } from '@/services/razorpayService';
-import { getAllSubscriptions } from '@/services/subscriptionService';
+import { getAllSubscriptions, updateSubscription } from '@/services/subscriptionService';
 import { requireAuth } from '@/lib/authGuard';
 import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
@@ -42,6 +42,10 @@ export async function POST(req: NextRequest) {
       parentEmail: sub.parentEmail,
       parentPhone: sub.phoneNumber,
     });
+
+    if (order.customerId && sub.razorpayCustomerId !== order.customerId) {
+      await updateSubscription({ ...sub, razorpayCustomerId: order.customerId });
+    }
 
     return successResponse(order, 'Razorpay mandate order created', 200);
   } catch (err: any) {

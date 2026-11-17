@@ -170,13 +170,18 @@ export async function processAutoDebitCharge(
   }
 
   try {
-    const { paymentId } = await chargeRecurringWithToken({
+    const { paymentId, customerId } = await chargeRecurringWithToken({
       subscriptionId: sub.id,
       amount: sub.monthlyFee,
       tokenId: sub.razorpayTokenId,
       parentEmail: sub.parentEmail,
       parentName: sub.parentName,
+      parentPhone: sub.phoneNumber,
+      customerId: sub.razorpayCustomerId,
     });
+    if (customerId && sub.razorpayCustomerId !== customerId) {
+      await updateSubscription({ ...sub, razorpayCustomerId: customerId });
+    }
     await settleSubscriptionCycle(sub.id, paymentId, sub.razorpayTokenId);
     return { subscriptionId: sub.id, success: true, paymentId };
   } catch (err: unknown) {

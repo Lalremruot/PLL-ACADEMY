@@ -2,10 +2,10 @@ import { NextRequest } from 'next/server';
 import {
   getRazorpayCredentials,
   verifyPaymentSignature,
-  fetchRazorpayPaymentTokenId,
+  fetchRazorpayPaymentMandate,
 } from '@/services/razorpayService';
 import { settleSubscriptionCycle } from '@/services/subscriptionBillingService';
-import { getAllSubscriptions } from '@/services/subscriptionService';
+import { getAllSubscriptions, updateSubscription } from '@/services/subscriptionService';
 import { requireAuth } from '@/lib/authGuard';
 import { rateLimit } from '@/lib/rateLimit';
 import { successResponse, errorResponse } from '@/utils/apiResponse';
@@ -46,14 +46,21 @@ export async function POST(req: NextRequest) {
     }
 
     let tokenId: string | null = null;
+    let customerId: string | null = null;
     try {
-      tokenId = await fetchRazorpayPaymentTokenId(paymentId);
+      const mandate = await fetchRazorpayPaymentMandate(paymentId);
+      tokenId = mandate.tokenId;
+      customerId = mandate.customerId;
     } catch (err) {
       return errorResponse(`Failed to retrieve mandate token: ${err instanceof Error ? err.message : 'Unknown error'}`, 500);
     }
 
     if (!tokenId) {
       return errorResponse('Mandate token not found in payment. Please contact support.', 500);
+    }
+
+    if (customerId && sub.razorpayCustomerId !== customerId) {
+      await updateSubscription({ ...sub, razorpayCustomerId: customerId });
     }
 
     const updated = await settleSubscriptionCycle(subscriptionId, paymentId, tokenId);

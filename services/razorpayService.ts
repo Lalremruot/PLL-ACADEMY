@@ -425,57 +425,151 @@ export async function fetchRazorpayPaymentTokenId(paymentId: string): Promise<st
   return (payment as any).token_id || null;
 }
 
-/** Charges a stored e-mandate token for a recurring monthly academy fee. */
+export async function fetchRazorpayPaymentMandate(paymentId: string): Promise<{
+  tokenId: string | null;
+  customerId: string | null;
+}> {
+  const creds = await getRazorpayCredentials();
+  const client = getRazorpayClient(creds);
+  const payment = (await client.payments.fetch(paymentId)) as any;
+  return {
+    tokenId: payment.token_id || null,
+    customerId: payment.customer_id || null,
+  };
+}
+
+function razorpayErrorMessage(err: unknown): string {
+  const razorpayError = err as any;
+  return (
+    razorpayError?.error?.description ||
+    razorpayError?.description ||
+    razorpayError?.message ||
+    'Recurring charge failed'
+  );
+}
+
+function wrapRazorpayError(err: unknown): Error {
+  const razorpayError = err as any;
+  const enhancedError = new Error(razorpayErrorMessage(err)) as any;
+  enhancedError.razorpayDetail = {
+    statusCode: razorpayError?.statusCode,
+    error: razorpayError?.error,
+    message: razorpayError?.message,
+    description: razorpayError?.error?.description,
+    code: razorpayError?.error?.code,
+    field: razorpayError?.error?.field,
+  };
+  return enhancedError;
+}
+
+/**
+ * Razorpay UPI Autopay subsequent charges require the SAME customer_id the
+ * mandate token belongs to, plus the parent's contact. Older subscriptions
+ * only stored the token — recover the customer from email when needed.
+ */
+async function resolveRecurringCustomer(input: {
+  customerId?: string;
+  parentEmail: string;
+  parentPhone?: string;
+}): Promise<{ customerId: string; contact: string }> {
+  const creds = await getRazorpayCredentials();
+  const client = getRazorpayClient(creds);
+
+  let customerId = input.customerId?.trim() || '';
+  let contact = (input.parentPhone || '').replace(/\D/g, '').slice(-10);
+
+  if (!customerId) {
+    if (!input.parentEmail) {
+      throw new Error(
+        'Cannot charge auto-debit: this mandate has no Razorpay customer id and no parent email to look up.'
+      );
+    }
+    customerId = await ensureRazorpayCustomer({
+      email: input.parentEmail,
+      contact: contact || undefined,
+    });
+  }
+
+  if (!contact) {
+    try {
+      const customer = (await client.customers.fetch(customerId)) as { contact?: string };
+      contact = String(customer?.contact || '').replace(/\D/g, '').slice(-10);
+    } catch {
+      // Fall through to the explicit error below.
+    }
+  }
+
+  if (!contact || contact.length !== 10) {
+    throw new Error(
+      'Cannot charge auto-debit: Razorpay requires the parent 10-digit mobile (contact) on subsequent UPI Autopay payments.'
+    );
+  }
+
+  return { customerId, contact };
+}
+
+/** Charges a stored UPI Autopay token for a recurring monthly academy fee. */
 export async function chargeRecurringWithToken(input: {
   subscriptionId: string;
   amount: number;
   tokenId: string;
   parentEmail: string;
   parentName?: string;
-}): Promise<{ orderId: string; paymentId: string }> {
+  parentPhone?: string;
+  customerId?: string;
+}): Promise<{ orderId: string; paymentId: string; customerId: string }> {
   const creds = await getRazorpayCredentials();
   const client = getRazorpayClient(creds);
   const amount = Math.round(input.amount * 100);
+  const { customerId, contact } = await resolveRecurringCustomer({
+    customerId: input.customerId,
+    parentEmail: input.parentEmail,
+    parentPhone: input.parentPhone,
+  });
 
+  // Subsequent UPI Autopay orders are ordinary orders with capture on.
+  // The authorization order (method: upi + token block) is only for first setup.
+  const receipt = `REC-${input.subscriptionId}`.slice(0, 40);
   const order = await client.orders.create({
     amount,
     currency: 'INR',
-    receipt: `REC-${input.subscriptionId}-${Date.now()}`,
+    payment_capture: true,
+    receipt,
     notes: {
       subscriptionId: input.subscriptionId,
       type: 'recurring',
     },
-  });
+  } as any);
 
   try {
     const payment = await (client.payments as any).createRecurringPayment({
       email: input.parentEmail,
+      contact,
       amount,
       currency: 'INR',
       order_id: order.id,
+      customer_id: customerId,
       token: input.tokenId,
-      recurring: '1',
-      description: `Academy monthly fee — ${input.parentName || input.parentEmail}`,
+      recurring: true,
+      description: `Academy monthly fee - ${input.parentName || input.parentEmail}`.slice(0, 255),
+      notes: {
+        subscriptionId: input.subscriptionId,
+        type: 'recurring',
+      },
     });
+
+    const paymentId = (payment?.razorpay_payment_id || payment?.id) as string | undefined;
+    if (!paymentId) {
+      throw new Error('Razorpay accepted the recurring request but returned no payment id.');
+    }
 
     return {
       orderId: order.id,
-      paymentId: payment.id as string,
+      paymentId,
+      customerId,
     };
   } catch (err: unknown) {
-    const razorpayError = err as any;
-    const detail = {
-      statusCode: razorpayError?.statusCode,
-      error: razorpayError?.error,
-      message: razorpayError?.message,
-      description: razorpayError?.error?.description,
-      code: razorpayError?.error?.code,
-      field: razorpayError?.error?.field,
-    };
-    const errorMessage = razorpayError?.error?.description || razorpayError?.message || 'Recurring charge failed';
-    const enhancedError = new Error(errorMessage) as any;
-    enhancedError.razorpayDetail = detail;
-    throw enhancedError;
+    throw wrapRazorpayError(err);
   }
 }
 

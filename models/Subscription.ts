@@ -23,6 +23,7 @@ export interface ISubscription extends Document {
   phoneNumber?: string;
   autoDebit?: boolean;
   razorpayTokenId?: string;
+  razorpayCustomerId?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -50,6 +51,7 @@ const SubscriptionSchema: Schema = new Schema(
     phoneNumber: { type: String, trim: true },
     autoDebit: { type: Boolean },
     razorpayTokenId: { type: String },
+    razorpayCustomerId: { type: String },
   },
   {
     timestamps: true,

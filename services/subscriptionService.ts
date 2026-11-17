@@ -44,6 +44,7 @@ function mapDoc(doc: Record<string, unknown>): Subscription {
     phoneNumber: doc.phoneNumber as string | undefined,
     autoDebit: doc.autoDebit as boolean | undefined,
     razorpayTokenId: doc.razorpayTokenId as string | undefined,
+    razorpayCustomerId: doc.razorpayCustomerId as string | undefined,
     footballStats: doc.footballStats as Subscription['footballStats'],
   };
 }
